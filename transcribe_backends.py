@@ -26,6 +26,7 @@ GPU whisper in turn falls back to CPU whisper on CUDA errors (VRAM is shared
 with other models on the host, so loads can OOM under load).
 """
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -447,12 +448,19 @@ def _transcribe_with_parakeet(media_path):
                 results.append(seg)
                 progress.update(float(seg.end))
             progress.update(progress.total)
+        transcript = _parakeet_transcript(results)
+        # Outside the parakeet gate on purpose: the repair takes it again for
+        # whisper, and the semaphore is not re-entrant.
+        _repair_script_drift(transcript, wav_path)
+        return transcript
     finally:
         try:
             os.remove(wav_path)
         except OSError:
             pass
 
+
+def _parakeet_transcript(results):
     out_segments = []
     text_parts = []
     for seg in results:
@@ -478,6 +486,112 @@ def _transcribe_with_parakeet(media_path):
         "language": _detect_language(text),
         "segments": out_segments,
     }
+
+
+# --- script drift repair ----------------------------------------------------
+#
+# Parakeet v3 has no language parameter: it picks one of its 25 languages per
+# VAD segment, from the audio alone. On short segments (a few words, an accent,
+# crosstalk) it sometimes writes English phonetically in Ukrainian or Russian:
+# "Тудей Марк із гана такі сторі" for "Today Mark is gonna tell his story". The
+# file-level language still reads "en", so the whisper fallback never fires,
+# and the Cyrillic words end up burned into the captions and fed to the moment
+# picker. Measured on 5-oct-2026: 9 of the 18 English jobs on the prod disk had
+# some, 3 of them on more than 1% of their words (one 39-minute podcast: 294 of
+# 7,017 words, in 70 of 884 segments, all of them short).
+#
+# The repair re-transcribes only those segments with whisper, forced to the
+# language of the whole file. On that podcast's first 5 minutes all 13 drifted
+# segments came back as the right English sentence.
+
+_SCRIPT_RX = {
+    "cyrl": re.compile("[\u0400-\u04FF]"),
+    "grek": re.compile("[\u0370-\u03FF]"),
+}
+_LANG_SCRIPT = {"ru": "cyrl", "uk": "cyrl", "bg": "cyrl", "el": "grek"}
+# A Cyrillic-script transcript can legitimately quote Latin brand names, so
+# only scripts that cannot belong to the file's language count as drift.
+_FOREIGN_SCRIPTS = {"latn": ("cyrl", "grek"), "grek": ("cyrl",), "cyrl": ()}
+_DRIFT_PAD = 0.15  # seconds of audio around a segment handed to whisper
+
+
+def _segment_drifted(text, language):
+    expected = _LANG_SCRIPT.get(language, "latn")
+    return any(_SCRIPT_RX[s].search(text or "") for s in _FOREIGN_SCRIPTS[expected])
+
+
+def _read_wav_16k(wav_path):
+    import wave
+    import numpy as np
+    with wave.open(wav_path, "rb") as w:
+        frames = w.readframes(w.getnframes())
+    return np.frombuffer(frames, dtype=np.int16).astype(np.float32) / 32768.0
+
+
+def _whisper_span(audio, language):
+    """Whisper words for one short audio span (seconds relative to the span).
+
+    Calls the model directly rather than through run_whisper_transcription so
+    the user-facing progress lines are not printed once per span.
+    """
+    params = dict(WHISPER_TRANSCRIBE_PARAMS, language=language, vad_filter=False)
+    gate = _ASR_GATE if _whisper_device() != "cpu" else _NULL_GATE
+    with gate:
+        model, _device = _get_whisper_model()
+        segments, _info = model.transcribe(audio, **params)
+        segments = list(segments)
+    words = [
+        {"word": w.word, "start": float(w.start), "end": float(w.end)}
+        for seg in segments for w in (seg.words or [])
+    ]
+    text = " ".join(seg.text.strip() for seg in segments if seg.text.strip())
+    return text, merge_continuation_words(words)
+
+
+def _repair_script_drift(transcript, wav_path):
+    """Re-transcribe, in place, the segments written in the wrong script.
+
+    Returns how many segments were replaced. Any failure leaves the parakeet
+    text as it was: a wrong-script caption is a defect, a failed job is worse.
+    """
+    language = transcript.get("language")
+    segments = transcript.get("segments") or []
+    drifted = [i for i, s in enumerate(segments) if _segment_drifted(s.get("text"), language)]
+    if not drifted:
+        return 0
+    try:
+        audio = _read_wav_16k(wav_path)
+    except Exception as e:
+        print(f"⚠️ [ASR] script drift repair skipped ({type(e).__name__}: {e})")
+        return 0
+    sr = 16000
+    fixed = 0
+    for i in drifted:
+        seg = segments[i]
+        lo = max(0.0, seg["start"] - _DRIFT_PAD)
+        hi = seg["end"] + _DRIFT_PAD
+        try:
+            text, words = _whisper_span(audio[int(lo * sr):int(hi * sr)], language)
+        except Exception as e:
+            print(f"⚠️ [ASR] script drift repair failed ({type(e).__name__}: {e})")
+            break
+        if not words:
+            continue
+        # Keep the transcript chronological: the padded span may reach into
+        # the neighbouring segments.
+        floor = segments[i - 1]["end"] if i > 0 else 0.0
+        ceil = segments[i + 1]["start"] if i + 1 < len(segments) else hi
+        for w in words:
+            w["start"] = float(min(max(w["start"] + lo, floor), ceil))
+            w["end"] = float(min(max(w["end"] + lo, w["start"]), ceil))
+        seg["text"] = text
+        seg["words"] = words
+        fixed += 1
+    if fixed:
+        transcript["text"] = " ".join(s["text"] for s in segments if s.get("text"))
+        print(f"🎙️ [ASR] re-transcribed {fixed}/{len(drifted)} segments written in "
+              f"the wrong script (language={language})")
+    return fixed
 
 
 def _detect_language(text):

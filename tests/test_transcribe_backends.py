@@ -392,3 +392,76 @@ def test_parakeet_threads_sleep_and_the_vad_runs_on_one_cpu_thread(monkeypatch):
     assert kw["providers"] == ["CPUExecutionProvider"]
     assert kw["sess_options"].entries == no_spin
     assert kw["sess_options"].intra_op_num_threads == 1
+
+
+# --- script drift repair -----------------------------------------------------
+
+def _drift_transcript():
+    return {
+        "text": "Hello there. Тудей Марк із гана такі сторі. Bye now.",
+        "language": "en",
+        "segments": [
+            {"start": 0.0, "end": 1.0, "text": "Hello there.",
+             "words": [{"word": " Hello", "start": 0.0, "end": 0.5},
+                       {"word": " there.", "start": 0.5, "end": 1.0}]},
+            {"start": 2.0, "end": 4.0, "text": "Тудей Марк із гана такі сторі.",
+             "words": [{"word": " Тудей", "start": 2.0, "end": 2.5}]},
+            {"start": 5.0, "end": 6.0, "text": "Bye now.",
+             "words": [{"word": " Bye", "start": 5.0, "end": 5.4},
+                       {"word": " now.", "start": 5.4, "end": 6.0}]},
+        ],
+    }
+
+
+def test_segment_drifted_by_language_script():
+    assert tb._segment_drifted("Тудей Марк", "en")
+    assert tb._segment_drifted("My job was to unify the whole компані", "es")
+    assert not tb._segment_drifted("Hello there", "en")
+    # Latin brand names inside a Cyrillic-script language are not drift.
+    assert not tb._segment_drifted("Мы используем YouTube", "ru")
+    assert tb._segment_drifted("Καλημέρα Марк", "el")
+
+
+def test_repair_replaces_only_drifted_segments(monkeypatch):
+    import numpy as np
+    calls = []
+    monkeypatch.setattr(tb, "_read_wav_16k", lambda path: np.zeros(16000 * 7, dtype=np.float32))
+
+    def fake_span(audio, language):
+        calls.append((len(audio), language))
+        return "Today Mark is gonna tell his story.", [
+            {"word": " Today", "start": 0.15, "end": 0.6},
+            {"word": " story.", "start": 1.5, "end": 9.0},  # runs past the next segment
+        ]
+
+    monkeypatch.setattr(tb, "_whisper_span", fake_span)
+    t = _drift_transcript()
+    assert tb._repair_script_drift(t, "/tmp/x.wav") == 1
+    assert calls == [(int(4.15 * 16000) - int(1.85 * 16000), "en")]
+    seg = t["segments"][1]
+    assert seg["text"] == "Today Mark is gonna tell his story."
+    assert seg["words"][0]["start"] == pytest.approx(2.0)
+    # Clamped so the transcript stays chronological.
+    assert seg["words"][-1]["end"] <= t["segments"][2]["start"]
+    assert "Тудей" not in t["text"] and t["text"].startswith("Hello there.")
+    assert t["segments"][0]["text"] == "Hello there."
+
+
+def test_repair_is_a_noop_without_drift(monkeypatch):
+    monkeypatch.setattr(tb, "_read_wav_16k", lambda path: pytest.fail("must not read audio"))
+    t = _drift_transcript()
+    t["segments"].pop(1)
+    assert tb._repair_script_drift(t, "/tmp/x.wav") == 0
+
+
+def test_repair_failure_keeps_parakeet_text(monkeypatch):
+    import numpy as np
+    monkeypatch.setattr(tb, "_read_wav_16k", lambda path: np.zeros(16000 * 7, dtype=np.float32))
+
+    def boom(audio, language):
+        raise RuntimeError("CUDA out of memory")
+
+    monkeypatch.setattr(tb, "_whisper_span", boom)
+    t = _drift_transcript()
+    assert tb._repair_script_drift(t, "/tmp/x.wav") == 0
+    assert t["segments"][1]["text"].startswith("Тудей")
