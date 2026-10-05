@@ -14,7 +14,7 @@
  */
 
 import { SITE, COMPETITORS, COMPARISON_ROWS, EDITIONS, PIPELINE_STEPS, CANONICAL_ANSWERS, PRICE_MODELS } from './data.js'
-import { demoBlock, costCalculator, flowCompare, verdictCards } from './components.js'
+import { demoBlock, costCalculator, flowCompare, verdictCards, factTiles } from './components.js'
 import { esc } from './render.js'
 import { toolPages } from './tools.js'
 import { autopilotPages } from './autopilot-pages.js'
@@ -177,6 +177,12 @@ const hubPage = () => {
   const checked = ALTERNATIVES.map((s) => COMPETITORS[s].checked).sort()[0]
   return {
   path: '/alternatives',
+  facts: [
+    { k: 'Tools compared', v: '8', s: 'OpenShorts and 7 cloud clippers' },
+    { k: 'Cheapest paid', v: '$9.90/mo', s: '2short.ai; OpenShorts Cloud $12 monthly' },
+    { k: 'Open source', v: '1 of 8', s: 'Only OpenShorts can be self-hosted' },
+    { k: 'Prices checked', v: 'Oct 2026', s: 'On every vendor pricing page' },
+  ],
   title: 'Open Source Opus Clip & Klap Alternatives | OpenShorts',
   description:
     'OpenShorts vs Opus Clip, Klap, Vizard, Submagic, Quso (Vidyo.ai), 2short and SendShort: pricing checked October 2026, free plans, and where each wins.',
@@ -207,6 +213,12 @@ includes.</p>
 ${rows}
 </tbody>
 </table>
+
+<h2>What would each one cost you?</h2>
+<p>The tools that bill by minutes of source video, priced for your own usage.
+Klap (per clip), Submagic (per video) and SendShort (per short) meter something
+else and are left out rather than forced onto the same axis.</p>
+${costCalculator(['opus-clip', 'vizard', 'vidyo-ai', '2short'])}
 
 <h2>What does OpenShorts cost?</h2>
 ${pricingParagraph}
@@ -692,6 +704,12 @@ ${sources([
  * and active-speaker cutting are capabilities the competitor pages cannot show. */
 const podcastToShorts = () => ({
   path: '/podcast-to-shorts',
+  facts: [
+    { k: 'Two speakers', v: 'Both in frame', s: 'Stacked split layout on real two-shots' },
+    { k: 'Episode length', v: '1-2 hours', s: 'The design case, not the limit' },
+    { k: 'Clips per episode', v: '3 to 15', s: '15 to 60 seconds each, captions burned in' },
+    { k: 'Cost', v: '$0', s: 'Self-hosted; hosted from $12/month' },
+  ],
   title: 'Podcast Clips: AI Clip Maker for Video Podcasts | OpenShorts',
   description:
     'Make podcast clips from a full episode: vertical shorts with subtitles that keep both speakers on screen. First episode free up to 60 minutes, or self-host free.',
@@ -741,6 +759,11 @@ Clip, Vizard or Quso whether it yields 5 usable clips or 20, and a weekly show a
 length runs past the entry plans of both. OpenShorts prices the other way
 around:</p>
 ${pricingParagraph}
+
+<h3>What a weekly show costs to clip, by tool</h3>
+<p>A weekly one-hour episode is about 260 minutes of source a month. Move the
+slider to your own schedule:</p>
+${costCalculator(['opus-clip', 'vizard', 'vidyo-ai', '2short'], { minutes: 270 })}
 
 <h2>Podcast clips or audiograms: which one do you need?</h2>
 <p>"Podcast clips" means two different things depending on how the show is
@@ -1330,6 +1353,17 @@ ${sources([
  * Every number that exists in data.js is read from there rather than retyped,
  * so the three hand-synced price lists cannot drift further apart.
  * ------------------------------------------------------------------------- */
+const OS_LANE = {
+  title: 'OpenShorts',
+  steps: [
+    'Paste a YouTube link or upload',
+    'Word-level transcript and scene cuts',
+    'Gemini scores and picks 3 to 15 moments',
+    'Reframed: face tracking, two speakers, screen + presenter',
+    'Captions and hook burned in, posted or sent by webhook',
+  ],
+}
+
 const OPUS = COMPETITORS['opus-clip']
 const opusTierTable = (filter = () => true) =>
   `<table>
@@ -1342,6 +1376,12 @@ const opusTierTable = (filter = () => true) =>
 
 const opusClipPricing = () => ({
   path: '/opus-clip-pricing',
+  facts: [
+    { k: 'Free plan', v: '60 min/mo', s: 'Watermarked, export within 3 days' },
+    { k: 'Starter', v: '$15/mo', s: '150 minutes, monthly billing only' },
+    { k: 'Pro', v: '$14.50/mo', s: 'Billed yearly ($29 monthly), 300 minutes' },
+    { k: 'Free trial', v: '7 days', s: 'Of Pro, no card, still watermarked' },
+  ],
   title: 'Opus Clip Pricing 2026: Plans, Trial, Credits | OpenShorts',
   description:
     'Opus Clip pricing in October 2026: free plan with 60 credits, Starter $15/month, Pro $29 or $14.50/month yearly, a 7-day trial, and what a credit is.',
@@ -1402,6 +1442,16 @@ whether the pipeline is good enough for your footage, a self-hosted OpenShorts
 run on one episode answers it at no cost and with no watermark, because the
 self-hosted edition contains no metering or watermark code.</p></div>
 
+<h2>What would Opus Clip cost you?</h2>
+<p>Three common creators, priced on the credit rule above (one credit per source minute):</p>
+${factTiles([
+  { k: 'One 20-min video a week', v: '~87 min', s: 'Fits Starter at $15/month' },
+  { k: 'Weekly 60-min podcast', v: '~260 min', s: 'Needs Pro: $29/month, or $14.50 yearly' },
+  { k: 'Daily 30-min stream', v: '~900 min', s: 'Past two Pro packs: Business, custom price' },
+])}
+<p>Or set your own number. Each bar is the cheapest published plan that covers it:</p>
+${costCalculator(['opus-clip', 'vizard'], { minutes: 150 })}
+
 <h2>Opus Clip vs OpenShorts on price</h2>
 <table>
 <thead><tr><th></th><th>Opus Clip</th><th>OpenShorts</th></tr></thead>
@@ -1451,6 +1501,12 @@ const OPUS_PRICING_FAQ = [
 
 const opusClipFree = () => ({
   path: '/opus-clip-free-alternative',
+  facts: [
+    { k: 'Opus Clip free', v: '60 min/mo', s: 'Watermark on every export' },
+    { k: 'Opus Clip trial', v: '7 days', s: 'Of Pro, watermarked too' },
+    { k: 'OpenShorts self-hosted', v: '$0', s: 'No watermark, no cap, MIT' },
+    { k: 'OpenShorts Cloud free', v: '60 min', s: 'First video whole, then 20 min/month' },
+  ],
   title: 'Free Opus Clip Alternative, No Watermark | OpenShorts',
   description:
     "Opus Clip's free plan watermarks every export, and so does its 7-day trial. Two genuinely free routes to the same clips, one of them with no watermark at all.",
@@ -1491,6 +1547,10 @@ stays free when your usage grows.</p>
 <p class="checked">Opus Clip terms checked ${esc(OPUS.checked)}; OpenShorts
 Cloud terms are ours and current.</p>
 
+<h2>What the free route produces</h2>
+<p>The same pipeline runs hosted and self-hosted. This is a real clip, next to its source:</p>
+${demoBlock()}
+
 <h2>The first free route: run it yourself</h2>
 <p>Clone the repository, run <code>docker compose up --build</code>, add a
 Google Gemini API key (its free tier covers 1,500 requests a day) and paste a
@@ -1516,6 +1576,9 @@ avoiding is paying a per-minute credit meter for long sources: a 60-minute
 episode consumes 60 credits at Opus Clip no matter how many clips you keep, and
 a weekly show at that length runs past Starter's 150 credits by the third
 episode of the month.</p>
+
+<h2>Which free route fits you?</h2>
+${verdictCards('the Opus Clip free plan', ['You want zero setup and 60 minutes a month is enough', 'The watermark does not matter for what you post', 'You want its caption styles'], ['You want no watermark without paying: self-host it', 'You want to try a long video whole, up to 60 minutes, free', 'You will pay later and want $12/month rather than $15'])}
 
 ${faqBlock(OPUS_FREE_FAQ)}
 
@@ -1548,6 +1611,12 @@ const OPUS_FREE_FAQ = [
 
 const opusAi = () => ({
   path: '/opus-ai',
+  facts: [
+    { k: 'Made by', v: 'OpusClip Inc.', s: 'At opus.pro; also makes Agent Opus' },
+    { k: 'Free plan', v: '60 min/mo', s: 'Watermarked; plus a 7-day Pro trial' },
+    { k: 'Paid from', v: '$15/mo', s: 'Starter; Pro $14.50/mo billed yearly' },
+    { k: 'Max source', v: '10 hours', s: '25+ languages, most in beta' },
+  ],
   title: 'Opus AI (opus.pro): What It Is and Pricing | OpenShorts',
   description:
     'Opus AI is how most people search for OpusClip, the clipper at opus.pro, whose maker also runs Agent Opus. What it does, what it costs, the open source route.',
@@ -1589,11 +1658,29 @@ ${li([
 <p>It is cloud only: there is no self-hosted edition and no source to read. It
 accepts sources up to 10 hours long.</p>
 
+<h2>How the workflow compares</h2>
+${flowCompare(
+  {
+    title: 'Opus AI (OpusClip)',
+    steps: [
+      'Upload a file or paste a YouTube link',
+      'ClipAnything proposes clips with a virality score',
+      { text: 'Choose the clips worth keeping' },
+      { text: 'Adjust captions, B-roll and framing' },
+      'Export, or schedule to connected accounts',
+    ],
+  },
+  OS_LANE
+)}
+
 <h2>What Opus AI costs</h2>
 <p class="checked">Checked ${esc(OPUS.checked)} on the vendor's public pricing and help pages.</p>
 ${opusTierTable()}
 <p>${esc(OPUS.gotcha)} The full breakdown, including the trial and how a credit
 is rounded, is on the <a href="/opus-clip-pricing">Opus Clip pricing page</a>.</p>
+
+<h3>What you would pay for your own usage</h3>
+${costCalculator(['opus-clip'], { minutes: 150 })}
 
 <h2>Where OpenShorts differs</h2>
 ${li([
@@ -1602,6 +1689,9 @@ ${li([
   'OpenShorts Cloud starts at $12/month for 100 minutes with no watermark; the hosted free plan clips your first video free up to 60 minutes, then 20 minutes a month.',
   'Opus has the larger caption-style library and a longer track record. If your clips live or die on animated caption design, that advantage is real.',
 ])}
+
+<h2>What the open source alternative produces</h2>
+${demoBlock()}
 
 <h2>What does OpenShorts cost?</h2>
 ${pricingParagraph}
@@ -1637,6 +1727,12 @@ const OPUS_AI_FAQ = [
 
 const opusPro = () => ({
   path: '/opus-pro',
+  facts: [
+    { k: 'Opus Pro', v: '$29/mo', s: 'Or $14.50/mo billed yearly ($174)' },
+    { k: 'Credits', v: '300/mo', s: '1 per source minute, 2 seats' },
+    { k: 'Starter', v: '$15/mo', s: '150 minutes, monthly billing only' },
+    { k: 'The quirk', v: 'Pro < Starter', s: 'Yearly Pro costs less than monthly Starter' },
+  ],
   title: 'Opus Pro Plan: $29 or $14.50/mo, Explained | OpenShorts',
   description:
     'Opus Pro is the $29/month OpusClip plan ($14.50 billed yearly): 300 credits, 2 seats, B-roll, API access. Plus what opus.pro is, and when Pro is the wrong buy.',
@@ -1670,6 +1766,11 @@ aspect ratios and limited API access. The pricing quirk is the yearly discount:
 Starter is monthly only, so Pro billed yearly, at $14.50/month, is cheaper than
 Starter and gives twice the credits. It only stops being the better deal if you
 cannot commit to a year.</p>
+
+<h2>Do you need Pro? Price your own usage</h2>
+<p>Set the minutes of source video you import in a month. At 150 or fewer, Starter
+covers it; above that, Pro is the plan, and yearly billing halves it.</p>
+${costCalculator(['opus-clip'], { minutes: 240 })}
 
 <h2>Who the Pro plan is priced for</h2>
 <p>Opus bills one credit per minute of video imported, not per clip exported.
@@ -1878,6 +1979,12 @@ const videoToText = () => {
   const c = COMPETITORS.vizard
   return {
     path: '/vizard-ai-video-to-text',
+    facts: [
+      { k: 'Vizard free', v: 'TXT only', s: 'SRT subtitles need a paid plan' },
+      { k: 'Languages', v: '180+', s: "Vizard's claim for transcripts" },
+      { k: 'OpenShorts', v: 'Word-level', s: 'A timestamp per word, free self-hosted' },
+      { k: 'No sign-up', v: 'Free tool', s: 'Our YouTube transcript generator, TXT or SRT' },
+    ],
     title: 'Vizard AI Video to Text: Transcripts, Compared | OpenShorts',
     description:
       'Vizard AI turns a video into text: a transcript, subtitles and clips. What that costs per minute, and how to get a word-level transcript free by self-hosting.',
@@ -1922,6 +2029,10 @@ lists 36 languages for clipping). The free plan gives 60 credits a month, upload
 up to 60 minutes and the transcript as TXT only; the paid plans, from
 ${esc(c.entryPrice)}, add SRT.</p>
 <p>${esc(c.gotcha)}</p>
+
+<div class="note"><span class="label">Only need the text?</span><p>If the video is on YouTube and already has captions,
+the free <a href="/youtube-transcript-generator">YouTube transcript generator</a> gives you the transcript
+as TXT or SRT in seconds, with no account and no upload.</p></div>
 
 <h2>Doing the same thing with OpenShorts</h2>
 <p>OpenShorts transcribes with faster-whisper and keeps a timestamp for every
@@ -2001,6 +2112,7 @@ const submagicReview = () => {
   ]
   return {
     path: '/submagic-reviews',
+    facts: c.facts,
     title: 'Submagic Review 2026: Captions, Magic Clips | OpenShorts',
     description:
       'An honest Submagic review, October 2026: best-in-class captions, Magic Clips for long videos, no free plan, and every plan metered per video with a length cap.',
@@ -2032,6 +2144,21 @@ workflow.</p>
 public review. If caption design is the reason you are shopping, the
 recommendation is straightforward and it is not ours.</p>
 
+<h2>How the workflow compares</h2>
+${flowCompare(
+  {
+    title: 'Submagic',
+    steps: [
+      'Upload a video or paste a link',
+      'Captions transcribed and styled',
+      'Optional: Magic Clips cuts a long video into clips',
+      { text: 'Pick a template, B-roll and zooms' },
+      { text: 'Export each video' },
+    ],
+  },
+  OS_LANE
+)}
+
 <h2>Where it is weaker</h2>
 <p>${esc(c.gotcha)}</p>
 <p>The clipping side is younger than the captions. Submagic does not publish how
@@ -2048,7 +2175,12 @@ be self-hosted, so a per-video meter is the only way to buy it.</p>
 For a podcast that is the number to check first: on the self-serve plans only
 Business allows a 30-minute video.</p>
 
+<h2>What a clipping-first tool produces</h2>
+<p>For comparison, a real OpenShorts clip next to its source:</p>
+${demoBlock()}
+
 <h2>The honest summary</h2>
+${verdictCards('Submagic', c.pick.them, c.pick.us)}
 <p>Submagic is the right buy if captions are your product and your videos are
 short. If you are starting from long recordings, compare what Magic Clips does
 with your footage against a clipping-first tool before committing to a yearly
@@ -2160,6 +2292,12 @@ const alternativasIndex = () => {
   return {
     path: '/alternativas',
     lang: 'es',
+    facts: [
+      { k: 'Herramientas', v: '8', s: 'OpenShorts y 7 clippers en la nube' },
+      { k: 'Plan de pago más barato', v: '$9,90/mes', s: '2short.ai; OpenShorts Cloud $12 al mes' },
+      { k: 'Código abierto', v: '1 de 8', s: 'Solo OpenShorts se puede autoalojar' },
+      { k: 'Precios comprobados', v: 'Oct 2026', s: 'En la web de precios de cada uno' },
+    ],
     title: 'Alternativas a Opus Clip, Vizard y Submagic | OpenShorts',
     description:
       'OpenShorts frente a Opus Clip, Vizard, Klap, Submagic, Quso (Vidyo.ai), 2short y SendShort: precios de octubre de 2026, planes gratuitos y en qué gana cada una.',
