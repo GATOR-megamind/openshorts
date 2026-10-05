@@ -627,7 +627,8 @@ async def _upsert_subscription(sub_obj: dict, event_created: datetime):
         )
 
 
-async def _set_subscription_status(sub_obj: dict, status: str, event_created: datetime):
+async def _set_subscription_status(sub_obj: dict, status: str, event_created: datetime,
+                                   only_from: frozenset | None = None):
     async with database.session() as s:
         async with s.begin():
             row = (await s.execute(
@@ -639,15 +640,42 @@ async def _set_subscription_status(sub_obj: dict, status: str, event_created: da
                 return
             if row.last_event_at and event_created < row.last_event_at:
                 return
+            if only_from is not None and row.status not in only_from:
+                return
             row.status = status
             row.last_event_at = event_created
 
 
+def _invoice_subscription_id(invoice_obj: dict) -> str | None:
+    """Since API 2025-03-31 the invoice no longer carries ``subscription``; it
+    lives under ``parent.subscription_details``. Read both."""
+    sub = invoice_obj.get("subscription")
+    if not sub:
+        details = (invoice_obj.get("parent") or {}).get("subscription_details") or {}
+        sub = details.get("subscription")
+    if isinstance(sub, dict):
+        sub = sub.get("id")
+    return sub or None
+
+
+# An invoice event only moves a live subscription between active and past_due.
+# A failed first charge leaves the row ``incomplete`` (Stripe expires it, and the
+# user must be able to retry checkout), and paying an old invoice never revives
+# a canceled one: ``customer.subscription.*`` stays the source of truth for those.
+_INVOICE_STATUS_FROM = {
+    "past_due": frozenset({"active", "trialing"}),
+    "active": frozenset({"past_due", "unpaid"}),
+}
+
+
 async def _set_subscription_status_by_invoice(invoice_obj: dict, status: str, event_created: datetime):
-    sub_id = invoice_obj.get("subscription")
+    sub_id = _invoice_subscription_id(invoice_obj)
     if not sub_id:
         return
-    await _set_subscription_status({"id": sub_id}, status, event_created)
+    if status == "past_due" and invoice_obj.get("billing_reason") == "subscription_create":
+        return
+    await _set_subscription_status({"id": sub_id}, status, event_created,
+                                   only_from=_INVOICE_STATUS_FROM[status])
 
 
 async def _notify_invoice_paid(invoice_obj: dict):
@@ -725,7 +753,7 @@ async def _track_invoice_revenue(invoice_obj: dict):
             return
         user_id, email = user
         plan = interval = None
-        sub_id = invoice_obj.get("subscription")
+        sub_id = _invoice_subscription_id(invoice_obj)
         if sub_id:
             sub = (await s.execute(
                 select(Subscription.plan, Subscription.interval).where(
