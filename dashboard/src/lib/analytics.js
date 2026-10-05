@@ -15,7 +15,7 @@ import { firstTouchProps } from './attribution';
 //   - QuotaWallCheckout  — a plan/top-up clicked inside the wall modal
 //   - UpsellModalCheckout— a plan/top-up clicked inside the upsell modal
 //   - CheckoutStarted    — checkout clicked, on ANY surface (see `source` prop:
-//                          'wall' | 'upsell' | 'pricing')
+//                          'wall' | 'upsell' | 'pricing' | 'watermark')
 //   - CheckoutRedirected — Stripe returned a URL and we are sending them there
 //   - CheckoutFailed     — /api/billing/checkout errored, `reason` says why
 //   - PartialClipChosen  — the wall's "clip the first N min" taken instead of a

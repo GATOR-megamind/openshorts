@@ -29,4 +29,7 @@ and "upgrade to remove the watermark" would be false for clips already made.
 - **Notice**: `WatermarkModal` shows once per job when the clips land on a free
   account (`source=results`, 2.5 s after the grid) and, if skipped, before the
   first download; tracked as `WatermarkNoticeSeen` / `WatermarkNoticeUpgrade`
-  with `source`. Its Upgrade opens the upsell `TopUpModal`.
+  with `source`. Its Upgrade button carries the Starter price and opens that
+  plan's checkout directly (`CheckoutStarted` with `source=watermark`); from a
+  download it downloads the clip first. If the plans cannot be loaded it falls
+  back to the upsell `TopUpModal`.

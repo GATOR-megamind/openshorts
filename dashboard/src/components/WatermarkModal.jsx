@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Modal from './ui/Modal';
+import { apiJson } from '../lib/api';
 import { track } from '../lib/analytics';
 
 const DISMISS_KEY = 'os_watermark_notice_dismissed';
@@ -25,15 +26,29 @@ export function markWatermarkNoticed(jobId) {
 // is literal since 30-sep-2026: the pipeline keeps a clean twin of every free
 // clip and paying re-points the library at it, so the clips on screen lose
 // the mark on the spot. Dismissible for good, like OpusClip's.
+//
+// The upgrade button names its price and goes straight to the Starter checkout:
+// a bare "Remove the watermark" reads as a free action, and the extra plan
+// picker in between is where most of those clicks ended. Without a Starter
+// price (plans not loaded) it falls back to onUpgrade. From a download, the
+// clip is downloaded first either way: the user asked for it.
 export default function WatermarkModal({ onClose, onContinue, onUpgrade, previewSrc = null,
                                          source = 'download', jobId = null }) {
   const [dontShow, setDontShow] = useState(false);
   const [previewFailed, setPreviewFailed] = useState(false);
+  const [starter, setStarter] = useState(null);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     markWatermarkNoticed(jobId);
     track('WatermarkNoticeSeen', { props: { source } });
   }, [jobId, source]);
+
+  useEffect(() => {
+    apiJson('/api/billing/plans')
+      .then((d) => setStarter((d.plans || []).find((p) => p.plan === 'starter' && p.interval === 'month') || null))
+      .catch(() => {});
+  }, []);
 
   const close = (proceed) => {
     if (dontShow) {
@@ -43,12 +58,45 @@ export default function WatermarkModal({ onClose, onContinue, onUpgrade, preview
     onClose();
   };
 
-  const upgrade = () => {
-    track('WatermarkNoticeUpgrade', { props: { source } });
-    close(false);
-    if (onUpgrade) onUpgrade();
-    else window.location.hash = '#/pricing';
+  const upgrade = async () => {
+    track('WatermarkNoticeUpgrade', { props: { source, direct: !!starter } });
+    if (!starter) {
+      if (source === 'download') onContinue?.();
+      close(false);
+      if (onUpgrade) onUpgrade();
+      else window.location.hash = '#/pricing';
+      return;
+    }
+    setBusy(true);
+    if (source === 'download') {
+      try { await onContinue?.(); } catch { /* the download has its own fallback */ }
+    }
+    // Same chain and stash as TopUpModal/PricingSection, so this surface shows
+    // up in CheckoutStarted → CheckoutRedirected → Subscribed like the others.
+    const props = { kind: 'subscription', plan: starter.plan, minutes: starter.minutes, source: 'watermark' };
+    track('CheckoutStarted', { props });
+    try {
+      localStorage.setItem('os_pending_checkout', JSON.stringify({
+        plan: starter.plan, interval: starter.interval, amount: starter.amount, currency: starter.currency,
+      }));
+    } catch { /* ignore storage errors */ }
+    try {
+      const { url } = await apiJson('/api/billing/checkout', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ price_id: starter.price_id }),
+      });
+      track('CheckoutRedirected', { props });
+      window.location.href = url;
+    } catch (e) {
+      track('CheckoutFailed', { props: { ...props, reason: String(e?.detail || e?.message || 'unknown').slice(0, 120) } });
+      setBusy(false);
+      alert(e?.detail || 'Could not start checkout.');
+    }
   };
+
+  const price = starter && new Intl.NumberFormat('en-US', {
+    style: 'currency', currency: (starter.currency || 'usd').toUpperCase(), maximumFractionDigits: 0,
+  }).format((starter.amount || 0) / 100);
 
   const src = previewSrc && !previewFailed ? previewSrc : '/demo/clip-vertical.mp4';
 
@@ -84,11 +132,11 @@ export default function WatermarkModal({ onClose, onContinue, onUpgrade, preview
           Don't show this again
         </label>
         <div className="flex items-center gap-2">
-          <button onClick={() => close(true)} className="btn-ghost px-4 py-2 text-sm">
+          <button onClick={() => close(true)} disabled={busy} className="btn-ghost px-4 py-2 text-sm">
             {source === 'download' ? 'Download anyway' : 'Keep the watermark'}
           </button>
-          <button onClick={upgrade} className="btn-primary px-4 py-2 text-sm">
-            Remove the watermark
+          <button onClick={upgrade} disabled={busy} className="btn-primary px-4 py-2 text-sm">
+            {busy ? 'Opening checkout…' : price ? `Remove the watermark · ${price}/mo` : 'Remove the watermark'}
           </button>
         </div>
       </div>
