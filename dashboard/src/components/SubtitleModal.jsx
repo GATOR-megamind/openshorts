@@ -428,6 +428,7 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
                                         value={editableText}
                                         onChange={(e) => handleTextEdit(e.target.value)}
                                         rows={5}
+                                        dir="auto"
                                         className="input-field resize-none leading-relaxed animate-fade"
                                         placeholder="Edit subtitle text..."
                                     />

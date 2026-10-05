@@ -38,6 +38,9 @@ WORKDIR /app
 # Install FFmpeg, OpenCV deps, Node.js + npm + git (for yt-dlp JS + bgutil build).
 # fontconfig + fonts-liberation back the subtitle font choices: without real
 # fonts libass falls back to DejaVu for every UI option (issue #57).
+# fonts-noto-core (~42 MB) is the glyph fallback for every other script:
+# Arabic, Hebrew, Devanagari, Bengali, Thai... burned as tofu boxes without it
+# (issue #89). libass shapes and orders RTL text itself once a font has the glyphs.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     curl \
@@ -51,6 +54,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     fontconfig \
     fonts-liberation \
+    fonts-noto-core \
     fonts-noto-color-emoji \
     && rm -rf /var/lib/apt/lists/*
 
