@@ -883,21 +883,132 @@ def _reapply_captions(job_id, clip_index, video_path):
         if not transcript or clip_index >= len(clips):
             return None
         clip = clips[clip_index]
-        import main as _main
         # A recut clip is a concatenation of source segments, so the flat
         # start..end window is wrong for it — caption against the clip-relative
         # remapped transcript instead (same trick /api/subtitle uses).
         recipe_segments = (clip.get('recipe') or {}).get('segments')
         if recipe_segments:
-            v_transcript = recut.virtual_transcript(transcript, recipe_segments)
-            return _main.auto_caption_clip(
-                video_path, v_transcript, 0.0,
-                recut.total_duration(recipe_segments))
-        return _main.auto_caption_clip(video_path, transcript,
-                                       clip['start'], clip['end'])
+            transcript = recut.virtual_transcript(transcript, recipe_segments)
+            start, end = 0.0, recut.total_duration(recipe_segments)
+        else:
+            start, end = clip['start'], clip['end']
+        if clip.get('caption_words'):
+            transcript = _words_transcript(clip['caption_words'],
+                                           transcript.get('language', 'en'))
+            start, end = 0.0, transcript['segments'][0]['end']
+        if clip.get('caption_style'):
+            return _restyle_captions(video_path, transcript, start, end,
+                                     clip['caption_style'],
+                                     clip.get('layout_ranges'))
+        import main as _main
+        return _main.auto_caption_clip(video_path, transcript, start, end)
     except Exception as e:
         print(f"⚠️  Could not re-apply captions to {video_path}: {e}")
         return None
+
+
+# The /api/subtitle request fields that make up a caption look. The endpoint
+# records them on the clip ('caption_style' in the metadata) so the paths that
+# put captions back on a freshly derived file (hook, AI edit, recut) burn the
+# look the user picked. They used to burn the default one, so adding a hook
+# silently swapped someone's small serif captions for big yellow Anton
+# (github issue #82).
+CAPTION_STYLE_FIELDS = (
+    "style", "position", "font_size", "font_name", "font_color",
+    "border_color", "border_width", "bg_color", "bg_opacity",
+    "highlight_color", "effect", "base_opacity", "uppercase", "reveal",
+    "shadow", "max_chars", "max_duration")
+
+
+def _words_transcript(words, language="en"):
+    """A one-segment transcript from clip-relative caption words
+    ({word, start, end}, word with its leading space), so the generators burn
+    user-edited text verbatim."""
+    words = sorted(words, key=lambda w: w["start"])
+    return {
+        "language": language,
+        "segments": [{
+            "start": words[0]["start"], "end": max(w["end"] for w in words),
+            "text": " ".join(w["word"] for w in words),
+            "words": words,
+        }],
+    }
+
+
+def _burn_caption_style(video_path, out_path, sub_path, transcript, start, end,
+                        style, split_ranges=None):
+    """Generate the caption file for ``style`` (CAPTION_STYLE_FIELDS, a
+    missing field takes the SubtitleRequest default) and burn it onto
+    ``video_path``. Returns False when no words fall in the range."""
+    s = {k: SubtitleRequest.model_fields[k].default for k in CAPTION_STYLE_FIELDS}
+    s.update({k: v for k, v in (style or {}).items() if k in s})
+    max_chars = (max(1, min(40, int(s["max_chars"])))
+                 if s["max_chars"] is not None else None)
+    max_duration = (max(0.5, min(5.0, float(s["max_duration"])))
+                    if s["max_duration"] is not None else None)
+    if s["style"] == "karaoke":
+        opts = dict(
+            split_ranges=split_ranges,
+            alignment=s["position"], fontsize=s["font_size"],
+            font_name=s["font_name"], font_color=s["font_color"],
+            border_color=s["border_color"], border_width=s["border_width"],
+            highlight_color=s["highlight_color"], bg_color=s["bg_color"],
+            bg_opacity=s["bg_opacity"], effect=s["effect"],
+            base_opacity=s["base_opacity"], uppercase=s["uppercase"],
+            reveal=s["reveal"], shadow=s["shadow"])
+        if max_chars is not None:
+            opts["max_chars"] = max_chars
+        if max_duration is not None:
+            opts["max_duration"] = max_duration
+        ok = generate_ass(transcript, start, end, sub_path, **opts)
+    else:
+        ok = generate_srt(transcript, start, end, sub_path,
+                          max_chars or 20, max_duration or 2.0)
+    if not ok:
+        return False
+    burn_subtitles(video_path, sub_path, out_path,
+                   alignment=s["position"], fontsize=s["font_size"],
+                   font_name=s["font_name"], font_color=s["font_color"],
+                   border_color=s["border_color"], border_width=s["border_width"],
+                   bg_color=s["bg_color"], bg_opacity=s["bg_opacity"])
+    return True
+
+
+def _restyle_captions(video_path, transcript, start, end, style,
+                      layout=None):
+    """Burn a recorded caption style next to ``video_path`` with the naming
+    auto_caption_clip uses (``subtitled_<ts>_<file>``, so the walk-backs find
+    the clean file). Returns the captioned path, or None (no words, failure)."""
+    output_dir = os.path.dirname(video_path)
+    generation_id = int(time.time())
+    karaoke = (style or {}).get("style") == "karaoke"
+    # Neutral name: the path goes inside an ffmpeg filter string, where an
+    # apostrophe from a clip title would close the quote.
+    sub_path = os.path.join(
+        output_dir,
+        f"subs_restyle_{generation_id}_{uuid.uuid4().hex[:8]}.{'ass' if karaoke else 'srt'}")
+    out_path = os.path.join(
+        output_dir, f"subtitled_{generation_id}_{os.path.basename(video_path)}")
+    seams = layout_ranges.split_ranges(layout or layout_ranges.read(video_path))
+    try:
+        if not _burn_caption_style(video_path, out_path, sub_path, transcript,
+                                   start, end, style, seams):
+            return None
+        return out_path
+    except Exception as e:
+        print(f"⚠️  Could not burn the recorded caption style on {video_path}: {e}")
+        return None
+
+
+def _recut_captioner(clip):
+    """perform_recut's ``captioner`` for a clip whose captions were styled
+    in the modal, or None for the default look. Edited words are not carried:
+    their timings belong to the previous cut."""
+    style = clip.get('caption_style')
+    if not style:
+        return None
+    return lambda path, transcript, start, end: _restyle_captions(
+        path, transcript, start, end, style)
 
 
 def _recover_jobs_from_disk():
@@ -4242,13 +4353,15 @@ async def _rerender_locked(req: RerenderRequest, request: Request, job):
                 segments=recut.rebase_segments(
                     segments, canonical_range['start'], canonical_range['end']),
                 output_dir=output_dir, clean_name=clean_name,
-                reframe=False, captions_transcript=v_transcript)
+                reframe=False, captions_transcript=v_transcript,
+                captioner=_recut_captioner(clip))
         return recut.perform_recut(
             input_path=source_path, segments=segments,
             output_dir=output_dir, clean_name=clean_name,
             reframe=True, output_format=data.get('output_format', 'auto'),
             force_strategy=force_strategy,
-            captions_transcript=v_transcript)
+            captions_transcript=v_transcript,
+            captioner=_recut_captioner(clip))
 
     try:
         loop = asyncio.get_event_loop()
@@ -4278,6 +4391,10 @@ async def _rerender_locked(req: RerenderRequest, request: Request, job):
         # wrong shots (re-frame after trimming to re-apply by hand).
         if clip.get('crop_overrides'):
             updates['crop_overrides'] = None
+        # Edited caption words are timed against the previous cut; the new one
+        # captions from the transcript (in the recorded style, if any).
+        if clip.get('caption_words'):
+            updates['caption_words'] = None
         clip.update(updates)
         data['shorts'] = clips
         with open(json_files[0], 'w') as f:
@@ -4609,7 +4726,8 @@ async def _reframe_locked(req: ReframeRequest, request: Request, job, overrides)
             reframe=True, output_format=data.get('output_format', 'auto'),
             force_strategy=force_strategy,
             crop_overrides=overrides,
-            captions_transcript=v_transcript)
+            captions_transcript=v_transcript,
+            captioner=_recut_captioner(clip))
 
     try:
         loop = asyncio.get_event_loop()
@@ -4882,6 +5000,7 @@ async def add_subtitles(req: SubtitleRequest, request: Request):
     # User-edited captions win over both: build a synthetic clip-relative
     # transcript from them so the SRT/ASS generators burn the edited words
     # verbatim (issue #69 — edits used to be dropped on this path).
+    caption_words = None
     if req.words:
         if len(req.words) > 2000:
             raise HTTPException(status_code=400, detail="Too many caption words (max 2000).")
@@ -4894,16 +5013,10 @@ async def add_subtitles(req: SubtitleRequest, request: Request):
             for w in req.words if w.text.strip() and w.endMs > w.startMs >= 0
         ]
         if edited:
-            edited.sort(key=lambda w: w["start"])
-            sub_transcript = {
-                "language": (transcript or {}).get("language", "en"),
-                "segments": [{
-                    "start": edited[0]["start"], "end": edited[-1]["end"],
-                    "text": " ".join(w["word"] for w in edited),
-                    "words": edited,
-                }],
-            }
-            sub_start, sub_end = 0.0, max(w["end"] for w in edited)
+            sub_transcript = _words_transcript(
+                edited, (transcript or {}).get("language", "en"))
+            sub_start, sub_end = 0.0, sub_transcript["segments"][0]["end"]
+            caption_words = sub_transcript["segments"][0]["words"]
 
     # Video Path
     if req.input_filename:
@@ -4937,6 +5050,7 @@ async def add_subtitles(req: SubtitleRequest, request: Request):
     # recorded there.
     seam_ranges = layout_ranges.split_ranges(
         clip_data.get('layout_ranges') or layout_ranges.read(input_path))
+    caption_style = {k: getattr(req, k) for k in CAPTION_STYLE_FIELDS}
     karaoke_opts = dict(
         split_ranges=seam_ranges,
         alignment=req.position, fontsize=req.font_size, font_name=req.font_name,
@@ -4992,27 +5106,25 @@ async def add_subtitles(req: SubtitleRequest, request: Request):
                 # they held 7.7 GB of VRAM idle (transcribe_backends.release_models).
                 import transcribe_backends
                 await loop.run_in_executor(None, transcribe_backends.release_models)
-        elif is_karaoke:
-            success = generate_ass(sub_transcript, sub_start, sub_end, srt_path, **karaoke_opts)
+            if not success:
+                raise HTTPException(status_code=400, detail="No words found for this clip range.")
+
+            # 2. Burn Subtitles
+            def run_burn():
+                burn_subtitles(input_path, srt_path, output_path,
+                               alignment=req.position, fontsize=req.font_size,
+                               font_name=req.font_name, font_color=req.font_color,
+                               border_color=req.border_color, border_width=req.border_width,
+                               bg_color=req.bg_color, bg_opacity=req.bg_opacity)
+            await loop.run_in_executor(None, run_burn)
         else:
-            success = generate_srt(sub_transcript, sub_start, sub_end, srt_path,
-                                   karaoke_opts.get("max_chars", 20),
-                                   karaoke_opts.get("max_duration", 2.0))
-
-        if not success:
-             raise HTTPException(status_code=400, detail="No words found for this clip range.")
-
-        # 2. Burn Subtitles
-        # Run in thread pool
-        def run_burn():
-             burn_subtitles(input_path, srt_path, output_path,
-                           alignment=req.position, fontsize=req.font_size,
-                           font_name=req.font_name, font_color=req.font_color,
-                           border_color=req.border_color, border_width=req.border_width,
-                           bg_color=req.bg_color, bg_opacity=req.bg_opacity)
-        
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, run_burn)
+            # Same code path the hook / edit / recut re-burn uses, so the look
+            # recorded below is the look that was burned here.
+            success = await asyncio.get_event_loop().run_in_executor(
+                None, _burn_caption_style, input_path, output_path, srt_path,
+                sub_transcript, sub_start, sub_end, caption_style, seam_ranges)
+            if not success:
+                raise HTTPException(status_code=400, detail="No words found for this clip range.")
         
     except Exception as e:
         print(f"❌ Subtitle Error: {e}")
@@ -5034,6 +5146,13 @@ async def add_subtitles(req: SubtitleRequest, request: Request):
     try:
         if req.clip_index < len(clips):
             clips[req.clip_index]['video_url'] = f"/videos/{req.job_id}/{output_filename}"
+            # The look (and edited words) the hook / edit / recut paths burn
+            # again when they put captions back (_reapply_captions, #82).
+            clips[req.clip_index]['caption_style'] = caption_style
+            if caption_words:
+                clips[req.clip_index]['caption_words'] = caption_words
+            else:
+                clips[req.clip_index].pop('caption_words', None)
             # Update the main data structure
             data['shorts'] = clips
             
