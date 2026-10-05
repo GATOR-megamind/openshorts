@@ -12,6 +12,7 @@
  */
 
 import { SITE, SAME_AS } from './data.js'
+import { COMPONENTS_CSS, factTiles } from './components.js'
 
 const esc = (s) =>
   String(s)
@@ -193,7 +194,7 @@ td.os{color:var(--ink)}
 footer.site{border-top:1px solid var(--rule);padding:2.5rem 0;font-size:.85rem;color:var(--muted)}
 footer.site a{color:var(--muted)}
 footer.site .row{display:flex;flex-wrap:wrap;gap:1.25rem;margin-bottom:1rem}
-`
+${COMPONENTS_CSS}`
 
 /* Organization is emitted once per page under a stable @id so every other node
  * can point at it instead of restating the brand. That single shared identifier
@@ -508,7 +509,12 @@ ${
   Updated <time datetime="${esc(page.updated || SITE.updated)}">${esc(page.updated || SITE.updated)}</time>
 </div>`
 }
-${page.tldr ? `<div class="tldr"><span class="label">TL;DR</span>${page.tldr.map((p) => `<p>${p}</p>`).join('')}</div>` : ''}
+${
+  // The short answer stays first in the HTML (it is what an engine quotes),
+  // but reads as the opening of the article rather than a labelled box.
+  page.tldr ? `<div class="summary">${page.tldr.map((p) => `<p>${p}</p>`).join('')}</div>` : ''
+}
+${page.facts ? factTiles(page.facts) : ''}
 ${showCta ? ctaBlock(page) : ''}
 ${page.body}
 ${relatedBlock(related, page.relatedTitle)}

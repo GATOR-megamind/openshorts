@@ -13,7 +13,8 @@
  * one above them get quoted wrong or not at all.
  */
 
-import { SITE, COMPETITORS, COMPARISON_ROWS, EDITIONS, PIPELINE_STEPS, CANONICAL_ANSWERS } from './data.js'
+import { SITE, COMPETITORS, COMPARISON_ROWS, EDITIONS, PIPELINE_STEPS, CANONICAL_ANSWERS, PRICE_MODELS } from './data.js'
+import { demoBlock, costCalculator, flowCompare, verdictCards } from './components.js'
 import { esc } from './render.js'
 import { toolPages } from './tools.js'
 import { autopilotPages } from './autopilot-pages.js'
@@ -82,12 +83,20 @@ them to 9:16 and burns in subtitles. ${
 } The caveat is that the free edition is self-hosted, which
 means Docker and a machine to run it on. If you want a hosted product with no
 setup, that is OpenShorts Cloud, and it is a paid service above 20 minutes a month.</p>
+${demoBlock()}
 
 <h2>What does ${esc(c.name)} cost?</h2>
 <p class="checked">Pricing checked ${esc(c.checked)}. Vendors change plans without notice; verify before you buy.</p>
 ${li(c.tiers.map(([n, d]) => `<strong>${esc(n)}</strong>: ${esc(d)}`))}
 ${c.tierNote ? `<p>${esc(c.tierNote)}</p>` : ''}
 <div class="note"><span class="label">The part that catches people out</span><p>${esc(c.gotcha)}</p></div>
+${
+  PRICE_MODELS[slug]
+    ? `<h2>What would you pay for your own usage?</h2>
+<p>Move the slider to the number of minutes of source video you clip in a month. Each bar is the cheapest published plan that covers it.</p>
+${costCalculator(slug === 'opus-clip' ? [slug, 'vizard'] : [slug, 'opus-clip'])}`
+    : ''
+}
 
 <h2>What does OpenShorts cost?</h2>
 ${pricingParagraph}
@@ -107,6 +116,7 @@ ${li(c.strengths.map(esc))}
 ${li(c.whereWeDiffer.map(esc))}
 
 <h2>Which one should you pick?</h2>
+${c.pick ? verdictCards(c.name, c.pick.them, c.pick.us) : ''}
 <p>${esc(c.bestFor)}</p>
 
 ${faqBlock(faq)}
@@ -132,9 +142,10 @@ ${sources([
     breadcrumb: [{ name: 'Alternatives', path: '/alternatives' }, { name: c.seo?.breadcrumb || c.name }],
     published: c.published,
     updated: c.checked,
+    facts: c.facts,
     tldr: c.tldr || [
       `OpenShorts is an open source AI clip generator you can run yourself for free, or use hosted from $12/month. ${esc(c.name)} is a closed-source cloud product starting at ${esc(c.entryPrice)}.`,
-      `Both find viral moments in long video and reframe them to 9:16 with face tracking. OpenShorts adds dubbing into 30+ languages and AI UGC video with lip-synced actors.${c.edge ? ` ${esc(c.edge)}` : ''}`,
+      `Both find viral moments in long video and reframe them to 9:16 with face tracking. ${c.rows?.['AI voice dubbing, 30+ languages'] ? 'OpenShorts adds two-speaker, screencast and webcam-inset layouts and AI UGC video with lip-synced actors.' : 'OpenShorts adds dubbing into 30+ languages and AI UGC video with lip-synced actors.'}${c.edge ? ` ${esc(c.edge)}` : ''}`,
       `Pick ${esc(c.name)} if you want zero setup and nothing else matters. Pick OpenShorts if you want to self-host for privacy, keep costs near zero, or change how the pipeline behaves.`,
     ],
     body,
@@ -1711,7 +1722,8 @@ const OPUS_PRO_FAQ = [
 /* "vizard ai" is a brand query with more volume than any non-brand term in the
  * category and almost no competition for it (KD 6, checked 2026-10-05). The
  * comparison page answers "alternative to"; this one answers the question the
- * searcher actually typed: what is it, what does it cost, is it free. */
+ * searcher actually typed: what is it, what does it cost, is it free, and is
+ * there something that fits me better. */
 const vizardAi = () => {
   const c = COMPETITORS.vizard
   const faq = [
@@ -1753,18 +1765,45 @@ const vizardAi = () => {
       button: 'Get free clips',
     },
     tldr: [
-      'Vizard AI is the browser-based video clipper at vizard.ai: it transcribes a long video, finds the moments, reframes them and hands you a timeline to fix captions and boundaries before export.',
-      `Its free plan gives 60 credits a month (one per minute uploaded), uploads up to 60 minutes and 720p exports of up to 10 minutes with a watermark. Paid plans start at $29/month, or $14.50/month billed yearly, with 4K and no watermark.`,
-      'OpenShorts is the open source alternative: free and unlimited when self-hosted, hosted from $12/month, and built to clip unattended rather than in a timeline.',
+      'Vizard AI is the browser-based video clipper at vizard.ai. It transcribes a long video, finds the moments worth posting, reframes them to vertical and hands you a timeline to fix captions and cut points before you export.',
+      'It is a good tool if you like editing each clip yourself. Below: what it costs for your own usage, what the free plan really allows, how its workflow differs from an unattended clipper, and when the open source route is the better fit.',
     ],
+    facts: c.facts,
     body: `
 <h2>What is Vizard AI?</h2>
 <p>${esc(c.brandBlurb)}</p>
-<p>The features it leads with: AI clips, auto
-reframe, animated subtitles with emoji and keyword highlighting, subtitle
-translation, AI B-roll, post suggestions, and publishing or scheduling to
-connected social accounts. Paid plans take uploads of up to 600 minutes and
-30 GB, at up to 4K.</p>
+<p>The features it leads with: AI clips, auto reframe, animated subtitles with
+emoji and keyword highlighting, subtitle translation, AI B-roll, post
+suggestions, and publishing or scheduling to connected social accounts. Paid
+plans take uploads of up to 600 minutes and 30 GB, at up to 4K.</p>
+
+<h2>How the workflow differs</h2>
+<p>The real difference between Vizard and an unattended clipper is not the AI, it
+is where you spend your time. Vizard puts a person in the timeline by design;
+OpenShorts is built to run to the end on its own, with an editor for the clips
+you choose to touch.</p>
+${flowCompare(
+  {
+    title: 'Vizard AI',
+    steps: [
+      'Upload a file or paste a link',
+      'AI transcribes and proposes clips',
+      { text: 'Review the clips in the timeline' },
+      { text: 'Fix captions and cut points' },
+      { text: 'Export, one clip at a time or in bulk' },
+    ],
+  },
+  {
+    title: 'OpenShorts',
+    steps: [
+      'Paste a YouTube link or upload',
+      'Word-level transcript and scene cuts',
+      'Gemini scores and picks 3 to 15 moments',
+      'Reframed: face tracking, two speakers, screen + presenter',
+      'Captions and hook burned in, posted or sent by webhook',
+    ],
+  }
+)}
 
 <h2>How much does Vizard AI cost?</h2>
 <p class="checked">Checked ${esc(c.checked)} on vizard.ai/pricing. Vendors change plans without notice; verify before you buy.</p>
@@ -1776,6 +1815,16 @@ connected social accounts. Paid plans take uploads of up to 600 minutes and
 yearly toggle halves the price, so the $29 Creator plan is $14.50/month on a
 yearly commitment.</p>
 
+<h3>What you would pay for your own usage</h3>
+<p>Set the minutes of source video you clip in a month. Each bar is the cheapest
+published plan that covers it, at Vizard, at Opus Clip (the usual comparison)
+and at OpenShorts Cloud.</p>
+${costCalculator(['vizard', 'opus-clip'])}
+<p>The pattern the calculator shows: on yearly billing Vizard's Creator plan is
+cheap for anything up to 600 minutes, and above that it has no published plan.
+On monthly billing it is $29 from the first paid minute, which is where a
+smaller plan can be cheaper.</p>
+
 <h2>Is the free plan enough?</h2>
 <p>For trying it, yes. For publishing, it is tight: 60 minutes of source a month
 is one podcast episode, exports stop at 720p and 10 minutes, every export
@@ -1784,6 +1833,11 @@ as TXT only on the free plan; SRT subtitles need a paid plan. If what you want i
 the transcript, the <a href="/vizard-ai-video-to-text">Vizard AI video to text
 comparison</a> covers that case on its own.</p>
 
+<h2>What the open source alternative produces</h2>
+<p>This is a real OpenShorts clip next to its source, not a mock-up. The same
+pipeline runs on openshorts.app and, free, on your own machine.</p>
+${demoBlock()}
+
 <h2>Vizard AI vs OpenShorts</h2>
 <table>
 <thead><tr><th></th><th>Vizard AI</th><th>OpenShorts</th></tr></thead>
@@ -1791,15 +1845,16 @@ comparison</a> covers that case on its own.</p>
 <tr><td>Free plan</td><td>60 credits/month, 720p, watermark, exports up to 10 min</td><td class="os">First video free up to 60 min, then 20 min/month (watermarked); self-hosted unlimited, no watermark</td></tr>
 <tr><td>Entry paid plan</td><td>$29/month, or $14.50/month yearly</td><td class="os">$12/month for 100 minutes, monthly</td></tr>
 <tr><td>Workflow</td><td>AI pass, then you edit in a timeline</td><td class="os">Unattended pipeline, with an editor for the clips you want to touch</td></tr>
-<tr><td>Open source, self-hostable</td><td>No</td><td class="os">Yes, MIT, Docker</td></tr>
+<tr><td>Open source, self-hostable</td><td>No</td><td class="os yes">Yes, MIT, Docker</td></tr>
 <tr><td>Layouts beyond a face-tracked crop</td><td>Auto reframe</td><td class="os">Two speakers stacked, screencast over presenter, webcam inset enlarged</td></tr>
 <tr><td>API</td><td>Included in paid plans, same credits</td><td class="os">Included, same minute balance; MCP server for Claude and ChatGPT</td></tr>
 </tbody>
 </table>
-<p>Where Vizard wins: if you plan to hand-correct every clip in a timeline, its
-editor is the better place to do it. Where OpenShorts wins: volume, automation,
-self-hosting, and multi-person or screen-recorded footage. The full side-by-side
-is on the <a href="/alternatives/vizard">Vizard alternative page</a>.</p>
+
+<h2>Which one should you pick?</h2>
+${verdictCards('Vizard AI', c.pick.them, c.pick.us)}
+<p>The full side-by-side, feature by feature, is on the
+<a href="/alternatives/vizard">Vizard alternative page</a>.</p>
 
 <h2>What does OpenShorts cost?</h2>
 ${pricingParagraph}

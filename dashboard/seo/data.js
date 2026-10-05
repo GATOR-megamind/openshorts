@@ -95,6 +95,16 @@ export const PIPELINE_STEPS = [
  * If you edit a price, edit the date. */
 export const COMPETITORS = {
   'opus-clip': {
+    facts: [
+      { k: 'Free plan', v: '60 min/mo', s: 'Watermarked, export within 3 days' },
+      { k: 'Paid from', v: '$15/mo', s: 'Starter, 150 min; Pro $14.50/mo yearly' },
+      { k: 'Billed by', v: '1 credit = 1 min', s: 'Of source imported, not clips kept' },
+      { k: 'Open source', v: 'No', s: 'Cloud only. OpenShorts: MIT, self-hostable' },
+    ],
+    pick: {
+      them: ['You want zero setup and the biggest caption-style library', 'Your sources are short, so per-minute credits stay cheap', 'You want B-roll and a virality score in one place'],
+      us: ['You want to self-host so the video never leaves your machine', 'Your sources are long and a per-minute meter would hurt', 'You want to read or change the pipeline, or drive it from an agent'],
+    },
     edge: 'Opus Clip has the larger, more polished caption library and a longer track record.',
     name: 'Opus Clip',
     checked: '2026-10-05',
@@ -130,6 +140,16 @@ export const COMPETITORS = {
     },
   },
   klap: {
+    facts: [
+      { k: 'Free plan', v: '1 video', s: 'To try it, no ongoing free tier' },
+      { k: 'Paid from', v: '$14/mo', s: 'Billed yearly, 100 clips a month' },
+      { k: 'Billed by', v: 'Clips', s: 'Clips generated, not minutes' },
+      { k: 'Open source', v: 'No', s: 'Cloud only. OpenShorts: MIT, self-hostable' },
+    ],
+    pick: {
+      them: ['You want the fastest link-to-clips path', 'A yearly plan suits you', 'You want split, screencast and gaming layouts with no setup'],
+      us: ['You want a free plan you can keep using', 'You want to pay month to month from $12', 'You want to self-host or tune the pipeline'],
+    },
     edge: 'Klap is the faster path from a link to a first clip.',
     name: 'Klap',
     checked: '2026-10-05',
@@ -160,6 +180,16 @@ export const COMPETITORS = {
     rows: { 'Usage cap': 'Metered in clips per month' },
   },
   vizard: {
+    facts: [
+      { k: 'Free plan', v: '60 min/mo', s: '720p, watermark, exports up to 10 min' },
+      { k: 'Paid from', v: '$14.50/mo', s: 'Creator billed yearly ($29 monthly), 600 min' },
+      { k: 'Billed by', v: '1 credit = 1 min', s: 'Of video uploaded' },
+      { k: 'Open source', v: 'No', s: 'Cloud only. OpenShorts: MIT, self-hostable' },
+    ],
+    pick: {
+      them: ['You will hand-correct every clip in a timeline', 'You process up to 600 minutes a month and can pay yearly', 'You want subtitle translation in many languages'],
+      us: ['You want clips without sitting in an editor', 'You want to automate it from n8n, an API or Claude', 'You want it free and self-hosted, or monthly from $12'],
+    },
     edge: 'Vizard has the better editor for fixing each clip by hand.',
     name: 'Vizard',
     checked: '2026-10-05',
@@ -207,6 +237,16 @@ export const COMPETITORS = {
     rows: { 'Usage cap': 'Metered in credits (1 per uploaded minute)' },
   },
   submagic: {
+    facts: [
+      { k: 'Free plan', v: 'None', s: 'A trial with no credit card' },
+      { k: 'Paid from', v: '$12/mo', s: 'Starter billed yearly ($19 monthly)' },
+      { k: 'Billed by', v: 'Videos', s: '15 to 100 a month, each capped at 2-30 min' },
+      { k: 'Open source', v: 'No', s: 'Cloud only. OpenShorts: MIT, self-hostable' },
+    ],
+    pick: {
+      them: ['Captions are your product and you want the best designs', 'Your videos are short', 'You want B-roll, zooms and silence removal in one editor'],
+      us: ['You start from long recordings: podcasts, streams, webinars', 'You need two speakers or a screen kept in frame', 'You want a free plan, or to self-host with no cap'],
+    },
     edge: 'Submagic has the more refined caption designs.',
     name: 'Submagic',
     checked: '2026-10-05',
@@ -237,6 +277,16 @@ export const COMPETITORS = {
     rows: { 'Usage cap': 'Metered in videos per month, each capped at 2-30 min' },
   },
   'vidyo-ai': {
+    facts: [
+      { k: 'Free plan', v: '75 min/mo', s: '720p, data kept 7 days' },
+      { k: 'Paid from', v: '$19/mo', s: 'Lite billed yearly ($29 monthly)' },
+      { k: 'Billed by', v: '~1 credit = 1 min', s: 'Yearly plans double the credits' },
+      { k: 'Renamed', v: 'Jan 2025', s: 'vidyo.ai redirects to quso.ai' },
+    ],
+    pick: {
+      them: ['You want clipping, scheduling and analytics in one app', 'You can commit to a yearly plan', 'You want a content planner for your whole calendar'],
+      us: ['Clipping quality and control are the job', 'You want to pay monthly from $12, or $0 self-hosted', 'You need two-speaker, screencast or webcam-inset layouts'],
+    },
     published: '2026-10-05',
     edge: 'Quso adds a content planner and analytics, which we do not have.',
     name: 'Quso',
@@ -292,6 +342,16 @@ export const COMPETITORS = {
     },
   },
   '2short': {
+    facts: [
+      { k: 'Free plan', v: '30 min/mo', s: 'No watermark, YouTube links only' },
+      { k: 'Paid from', v: '$9.90/mo', s: 'Lite, 5 hours of analysis' },
+      { k: 'Input', v: 'Links', s: 'YouTube; Drive and URLs from Lite' },
+      { k: 'Open source', v: 'No', s: 'Cloud only. OpenShorts: MIT, self-hostable' },
+    ],
+    pick: {
+      them: ['Your sources are already on YouTube', 'You want the lowest price per hour', 'One face-tracked crop is enough for your footage'],
+      us: ['You upload your own recordings', 'You clip podcasts with two people on camera, or screen recordings', 'You want to self-host, or dub clips into 30+ languages'],
+    },
     published: '2026-10-05',
     name: '2short.ai',
     seo: {
@@ -344,6 +404,16 @@ export const COMPETITORS = {
     rows: { 'Usage cap': 'Metered in hours of analysis per month' },
   },
   sendshort: {
+    facts: [
+      { k: 'Free plan', v: 'None', s: '3 free videos at sign-up' },
+      { k: 'Clipping from', v: '$29/mo', s: 'Professional ($23 yearly); Starter has none' },
+      { k: 'Billed by', v: 'Shorts', s: '20, 50 or unlimited a month' },
+      { k: 'Open source', v: 'No', s: 'Cloud only. OpenShorts: MIT, self-hostable' },
+    ],
+    pick: {
+      them: ['You want faceless, avatar and prompt-to-video shorts too', 'You want captions translated into 100+ languages', 'One subscription for many formats matters more than depth'],
+      us: ['The job is clipping your own long recordings', 'You want clipping on every plan, the free one included', 'You want to self-host or keep the cost near zero'],
+    },
     published: '2026-10-05',
     name: 'SendShort',
     seo: {
@@ -430,3 +500,77 @@ export const CITED_STATS = [
     source: 'Wyzowl, Video Marketing Statistics 2025',
   },
 ]
+
+/* Plans as the cost calculator needs them: minutes of source video covered per
+ * month and the monthly price, on monthly and on yearly billing. Only tools
+ * that bill by source minutes are here; Klap (per clip), Submagic (per video)
+ * and SendShort (per short) cannot be priced on the same axis, and pretending
+ * otherwise would be the kind of number this file exists to avoid. */
+export const PRICE_MODELS = {
+  // The edition the hosted plans are a convenience over: same pipeline, your
+  // machine, no meter. Shown as its own bar so the calculator never implies the
+  // hosted price is the only OpenShorts price.
+  'openshorts-self': {
+    name: 'OpenShorts self-hosted',
+    unit: 'your machine, MIT',
+    plans: [{ name: 'Docker, no watermark, no cap', monthly: { minutes: 1e9, price: 0 } }],
+  },
+  openshorts: {
+    name: 'OpenShorts Cloud',
+    unit: 'per source minute',
+    checked: '2026-10-05',
+    plans: [
+      { name: 'Free', watermark: true, monthly: { minutes: 20, price: 0 } },
+      { name: 'Starter', monthly: { minutes: 100, price: 12 }, yearly: { minutes: 100, price: 10 } },
+      { name: 'Creator', monthly: { minutes: 300, price: 29 }, yearly: { minutes: 300, price: 24.17 } },
+      { name: 'Pro', monthly: { minutes: 750, price: 59 }, yearly: { minutes: 750, price: 49.17 } },
+      // Pro plus top-ups of 200 minutes at $25.
+      { name: 'Pro + 200 min', monthly: { minutes: 950, price: 84 }, yearly: { minutes: 950, price: 74.17 } },
+      { name: 'Pro + 400 min', monthly: { minutes: 1150, price: 109 }, yearly: { minutes: 1150, price: 99.17 } },
+      { name: 'Pro + 600 min', monthly: { minutes: 1350, price: 134 }, yearly: { minutes: 1350, price: 124.17 } },
+      { name: 'Pro + 800 min', monthly: { minutes: 1550, price: 159 }, yearly: { minutes: 1550, price: 149.17 } },
+    ],
+  },
+  'opus-clip': {
+    name: 'Opus Clip',
+    unit: '1 credit per source minute',
+    checked: '2026-10-05',
+    plans: [
+      { name: 'Free', watermark: true, monthly: { minutes: 60, price: 0 } },
+      { name: 'Starter', monthly: { minutes: 150, price: 15 } },
+      { name: 'Pro', monthly: { minutes: 300, price: 29 }, yearly: { minutes: 300, price: 14.5 } },
+      { name: 'Pro, 2 packs', monthly: { minutes: 600, price: 58 }, yearly: { minutes: 600, price: 29 } },
+    ],
+  },
+  vizard: {
+    name: 'Vizard',
+    unit: '1 credit per uploaded minute',
+    checked: '2026-10-05',
+    plans: [
+      { name: 'Free', watermark: true, monthly: { minutes: 60, price: 0 } },
+      { name: 'Creator', monthly: { minutes: 600, price: 29 }, yearly: { minutes: 600, price: 14.5 } },
+    ],
+  },
+  'vidyo-ai': {
+    name: 'Quso (Vidyo.ai)',
+    unit: '~1 credit per minute',
+    checked: '2026-10-05',
+    plans: [
+      { name: 'Free (720p)', monthly: { minutes: 75, price: 0 } },
+      { name: 'Lite', monthly: { minutes: 100, price: 29 }, yearly: { minutes: 200, price: 19 } },
+      { name: 'Essential', monthly: { minutes: 300, price: 39 }, yearly: { minutes: 600, price: 26 } },
+      { name: 'Growth', monthly: { minutes: 600, price: 49 }, yearly: { minutes: 1200, price: 33 } },
+    ],
+  },
+  '2short': {
+    name: '2short.ai',
+    unit: 'hours of video analysed',
+    checked: '2026-10-05',
+    plans: [
+      { name: 'Free', monthly: { minutes: 30, price: 0 } },
+      { name: 'Lite', monthly: { minutes: 300, price: 9.9 } },
+      { name: 'Pro', monthly: { minutes: 900, price: 19.9 } },
+      { name: 'Premium', monthly: { minutes: 3000, price: 49.9 } },
+    ],
+  },
+}
