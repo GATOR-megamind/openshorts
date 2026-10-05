@@ -212,7 +212,7 @@ export default function Landing({ onLaunchApp }) {
     },
     {
       question: "Is there a free open source clip generator?",
-      answer: "Yes — OpenShorts is a 100% free, open source clip generator (also known as open source clipping software or an AI video clipper). Unlike paid clip generators like Opus Clip ($15-228/month) or Kapwing ($24-79/month), OpenShorts lets you generate unlimited clips with no watermarks, no usage limits, and no subscription fees. It also includes a free AI YouTube thumbnail generator, free AI YouTube title generator, and free AI YouTube description generator — features that other clip generators charge extra for. You self-host it with Docker on your own machine for full privacy and control."
+      answer: "Yes. OpenShorts is an open source clip generator (also known as open source clipping software or an AI video clipper) under the MIT licence. Self-hosted, it generates unlimited clips with no watermarks, no usage limits and no subscription fees. OpenShorts Cloud, the hosted version, clips your first video free up to 60 minutes, then 20 minutes a month with a watermark, and paid plans start at $12/month without one. It also includes a free AI YouTube thumbnail generator, free AI YouTube title generator, and free AI YouTube description generator — features that other clip generators charge extra for. You self-host it with Docker on your own machine for full privacy and control."
     },
     {
       question: "Can I automate OpenShorts from Claude, ChatGPT or n8n?",
@@ -281,7 +281,7 @@ export default function Landing({ onLaunchApp }) {
               or with the{' '}
               <a href="/n8n-youtube-shorts-automation" className="text-ink2 underline underline-offset-4 decoration-rule hover:text-ink hover:decoration-brass transition-colors">n8n workflow</a>.
               just want it free? start with the{' '}
-              <a href="/free-ai-clip-generator" className="text-ink2 underline underline-offset-4 decoration-rule hover:text-ink hover:decoration-brass transition-colors">free ai clip generator</a>.
+              <a href="/free-ai-clip-generator" className="text-ink2 underline underline-offset-4 decoration-rule hover:text-ink hover:decoration-brass transition-colors">free ai clipping tool</a>.
             </p>
 
             {/* The hero CTA is the product itself: paste a link and land in the
@@ -787,7 +787,7 @@ export default function Landing({ onLaunchApp }) {
             <a href="/youtube-automation" className="hover:text-ink transition-colors">youtube automation</a>
             <a href="/free-ai-clip-generator-no-watermark" className="hover:text-ink transition-colors">no watermark</a>
             <a href="/open-source-video-clipper" className="hover:text-ink transition-colors">open source video clipper</a>
-            <a href="/podcast-to-shorts" className="hover:text-ink transition-colors">podcast to shorts</a>
+            <a href="/podcast-to-shorts" className="hover:text-ink transition-colors">podcast clips</a>
             <a href="/youtube-to-shorts-converter" className="hover:text-ink transition-colors">youtube to shorts</a>
             <a href="/how-openshorts-works" className="hover:text-ink transition-colors">how it works</a>
             <a href="/alternatives" className="hover:text-ink transition-colors">alternatives</a>
@@ -797,7 +797,11 @@ export default function Landing({ onLaunchApp }) {
             <a href="/opus-clip-free-alternative" className="hover:text-ink transition-colors">free opus clip alternative</a>
             <a href="/opus-ai" className="hover:text-ink transition-colors">opus ai</a>
             <a href="/opus-pro" className="hover:text-ink transition-colors">opus pro</a>
+            <a href="/vizard-ai" className="hover:text-ink transition-colors">vizard ai</a>
             <a href="/vizard-ai-video-to-text" className="hover:text-ink transition-colors">vizard ai video to text</a>
+            <a href="/alternatives/vidyo-ai" className="hover:text-ink transition-colors">vidyo ai (quso)</a>
+            <a href="/alternatives/2short" className="hover:text-ink transition-colors">2short ai</a>
+            <a href="/alternatives/sendshort" className="hover:text-ink transition-colors">sendshort</a>
             <a href="/submagic-reviews" className="hover:text-ink transition-colors">submagic review</a>
             <a href="/mcp" className="hover:text-ink transition-colors">mcp server & api</a>
             <a href="/automate-shorts-api" className="hover:text-ink transition-colors">automate shorts</a>

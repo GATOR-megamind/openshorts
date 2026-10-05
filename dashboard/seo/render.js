@@ -290,7 +290,7 @@ const footer = (_related) => `
     <a href="/free-ai-clip-generator-no-watermark">No-watermark clip generator</a>
     <a href="/open-source-video-clipper">Open source video clipper</a>
     <a href="/open-source-ai-video-generator">Open source AI video generator</a>
-    <a href="/podcast-to-shorts">Podcast to shorts</a>
+    <a href="/podcast-to-shorts">Podcast clips</a>
     <a href="/youtube-to-shorts-converter">YouTube to Shorts converter</a>
     <a href="/gta-5-clips">GTA 5 clips</a>
     <a href="/how-openshorts-works">How it works</a>
@@ -312,11 +312,16 @@ const footer = (_related) => `
     <a href="/opus-clip-free-alternative">Free Opus Clip alternative</a>
     <a href="/opus-ai">Opus AI</a>
     <a href="/opus-pro">Opus Pro</a>
+    <a href="/vizard-ai">Vizard AI</a>
     <a href="/vizard-ai-video-to-text">Vizard AI video to text</a>
     <a href="/submagic-reviews">Submagic review</a>
+    <a href="/alternatives/vidyo-ai">Vidyo.ai (Quso)</a>
+    <a href="/alternatives/2short">2short AI</a>
+    <a href="/alternatives/sendshort">SendShort</a>
   </div>
   <p>OpenShorts self-hosted is free and open source under MIT. OpenShorts Cloud
-  is the hosted service: 20 free minutes a month, paid plans from $12/month.
+  is the hosted service: your first video free up to 60 minutes, then 20 free
+  minutes a month, paid plans from $12/month.
   Last updated ${esc(SITE.updated)}.</p>
 </div></footer>`
 

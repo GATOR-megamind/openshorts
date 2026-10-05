@@ -69,7 +69,7 @@ const FAQ = [
   ['What is OpenShorts and how does it work?', CANONICAL_ANSWERS.whatIsIt + ' ' + CANONICAL_ANSWERS.howItWorks],
   [
     'How does OpenShorts compare to Opus Clip?',
-    'Both do AI viral moment detection and smart vertical cropping. OpenShorts is MIT-licensed and can be self-hosted, so the source video never leaves your machine, and it adds voice dubbing into 30+ languages plus an AI UGC generator with lip-synced actors. Opus Clip is closed source and cloud only, starting at $15/month as of July 2026, and it ships a larger caption-style library. Full comparison at /alternatives/opus-clip.',
+    'Both do AI viral moment detection and smart vertical cropping. OpenShorts is MIT-licensed and can be self-hosted, so the source video never leaves your machine, and it adds voice dubbing into 30+ languages plus an AI UGC generator with lip-synced actors. Opus Clip is closed source and cloud only, starting at $15/month as of October 2026, and it ships a larger caption-style library. Full comparison at /alternatives/opus-clip.',
   ],
   [
     'How does the smart vertical cropping work?',
@@ -101,7 +101,7 @@ export const LANDING_FALLBACK = `<div id="seo-content" style="background:oklch(1
 <section style="${S.section};padding-top:4rem"><div style="${S.wrap}">
   <p style="${S.eyebrow}">AI clip generator &middot; cloud or self-hosted</p>
   <h1 style="${S.h1}">the free open source ai clip generator, built to clip what people actually watch.</h1>
-  <p style="${S.p};max-width:44rem;font-size:1.05rem">Turn long videos into viral 9:16 shorts, or generate UGC marketing videos with AI actors. Online in the cloud with zero setup, or self-hosted with Docker for free. Also a clipping tool for AI agents: Claude, ChatGPT and n8n drive it over <a href="/mcp" style="${S.a}">MCP</a>, or run a channel on autopilot with <a href="/auto-clip" style="${S.a}">Autopilot</a> or the <a href="/n8n-youtube-shorts-automation" style="${S.a}">n8n workflow</a>. Just want it free? Start with the <a href="/free-ai-clip-generator" style="${S.a}">free AI clip generator</a>.</p>
+  <p style="${S.p};max-width:44rem;font-size:1.05rem">Turn long videos into viral 9:16 shorts, or generate UGC marketing videos with AI actors. Online in the cloud with zero setup, or self-hosted with Docker for free. Also a clipping tool for AI agents: Claude, ChatGPT and n8n drive it over <a href="/mcp" style="${S.a}">MCP</a>, or run a channel on autopilot with <a href="/auto-clip" style="${S.a}">Autopilot</a> or the <a href="/n8n-youtube-shorts-automation" style="${S.a}">n8n workflow</a>. Just want it free? Start with the <a href="/free-ai-clip-generator" style="${S.a}">free AI clipping tool</a>.</p>
   <p style="${S.muted};max-width:44rem"><strong style="color:oklch(75% 0.11 150)">No credit card required.</strong> Your first video is free up to 60 minutes, then 20 free minutes every month. Paid plans from $12/month without a watermark. Prefer to run it yourself? <a style="${S.a}" href="https://github.com/mutonby/openshorts" rel="noopener">Self-host free on GitHub</a>.</p>
 </div></section>
 
@@ -133,7 +133,7 @@ export const LANDING_FALLBACK = `<div id="seo-content" style="background:oklch(1
 
 <section style="${S.section}"><div style="${S.wrap}">
   <h2 style="${S.h2}">how it compares</h2>
-  <p style="${S.muted};max-width:48rem">Entry pricing checked 27 July 2026. OpenShorts is $0 self-hosted or $12/month hosted without a watermark. Submagic starts at $14/month, Opus Clip at $15/month, Vizard at $19.99/month and Klap at $29/month. OpenShorts is the only open source and self-hostable option of the five.</p>
+  <p style="${S.muted};max-width:48rem">Entry pricing checked 5 October 2026. OpenShorts is $0 self-hosted or $12/month hosted without a watermark, billed monthly. 2short.ai starts at $9.90/month, Submagic at $12, Klap at $14 and Vizard at $14.50 a month on yearly billing, Opus Clip at $15/month and Quso (formerly Vidyo.ai) at $19/month yearly. OpenShorts is the only open source and self-hostable option.</p>
   <p style="${S.muted}">
     <a style="${S.a}" href="/alternatives/opus-clip">Opus Clip alternative</a> &middot;
     <a style="${S.a}" href="/alternatives/klap">Klap alternative</a> &middot;
@@ -149,7 +149,7 @@ export const LANDING_FALLBACK = `<div id="seo-content" style="background:oklch(1
     <a style="${S.a}" href="/free-ai-clip-generator-no-watermark">No-watermark clip generator</a> &middot;
     <a style="${S.a}" href="/open-source-video-clipper">Open source video clipper</a> &middot;
     <a style="${S.a}" href="/open-source-ai-video-generator">Open source AI video generator</a> &middot;
-    <a style="${S.a}" href="/podcast-to-shorts">Podcast to shorts</a> &middot;
+    <a style="${S.a}" href="/podcast-to-shorts">Podcast clips</a> &middot;
     <a style="${S.a}" href="/youtube-to-shorts-converter">YouTube to Shorts converter</a> &middot;
     <a style="${S.a}" href="/how-openshorts-works">How it works</a> &middot;
     <a style="${S.a}" href="/alternatives">All alternatives compared</a> &middot;
@@ -158,7 +158,11 @@ export const LANDING_FALLBACK = `<div id="seo-content" style="background:oklch(1
     <a style="${S.a}" href="/opus-clip-free-alternative">Free Opus Clip alternative</a> &middot;
     <a style="${S.a}" href="/opus-ai">Opus AI</a> &middot;
     <a style="${S.a}" href="/opus-pro">Opus Pro</a> &middot;
+    <a style="${S.a}" href="/vizard-ai">Vizard AI</a> &middot;
     <a style="${S.a}" href="/vizard-ai-video-to-text">Vizard AI video to text</a> &middot;
+    <a style="${S.a}" href="/alternatives/vidyo-ai">Vidyo.ai (Quso) alternative</a> &middot;
+    <a style="${S.a}" href="/alternatives/2short">2short AI alternative</a> &middot;
+    <a style="${S.a}" href="/alternatives/sendshort">SendShort alternative</a> &middot;
     <a style="${S.a}" href="/submagic-reviews">Submagic review</a> &middot;
     <a style="${S.a}" href="/mcp">MCP server &amp; API</a> &middot;
     <a style="${S.a}" href="/automate-shorts-api">Automate shorts via API</a> &middot;

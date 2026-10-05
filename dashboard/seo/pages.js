@@ -43,7 +43,8 @@ ${esc(EDITIONS.cloud.summary)}</p>`
 function competitorPage(slug) {
   const c = COMPETITORS[slug]
   const rows = COMPARISON_ROWS.map((r) => {
-    const vendor = r.key ? c[r.key] : r.vendor
+    // A competitor can correct a generic row ("No" is not true of every tool).
+    const vendor = c.rows?.[r.feature] ?? (r.key ? c[r.key] : r.vendor)
     return `<tr><td>${esc(r.feature)}</td><td class="os">${esc(r.os)}</td><td>${esc(vendor)}</td></tr>`
   }).join('')
 
@@ -52,7 +53,7 @@ function competitorPage(slug) {
   const faq = [
     {
       q: `Is there a free alternative to ${c.name}?`,
-      a: `Yes. OpenShorts self-hosted is free and open source under MIT, with no watermark and no usage cap, and it runs on your own machine with Docker. OpenShorts Cloud also has a free tier of 20 minutes a month with a watermark and no credit card. ${c.name} starts at ${c.entryPrice}.`,
+      a: `Yes. OpenShorts self-hosted is free and open source under MIT, with no watermark and no usage cap, and it runs on your own machine with Docker. OpenShorts Cloud also has a free plan: your first video clipped whole up to 60 minutes, then 20 minutes a month, with a watermark and no credit card. ${c.name} starts at ${c.entryPrice}.`,
     },
     {
       q: `Is there an open source alternative to ${c.name}?`,
@@ -64,7 +65,7 @@ function competitorPage(slug) {
     },
     {
       q: `Does OpenShorts put a watermark on clips?`,
-      a: `Self-hosted, never. On OpenShorts Cloud the free 20-minute tier is watermarked; every paid plan from $12/month is not.`,
+      a: `Self-hosted, never. On OpenShorts Cloud the free plan is watermarked; every paid plan from $12/month is not, and upgrading removes the mark from the clips you already made.`,
     },
     ...(c.extraFaq || []),
   ]
@@ -74,15 +75,18 @@ ${c.brandBlurb ? `<h2>What is ${esc(c.name)}${c.brandAlias ? ` (${esc(c.brandAli
 <h2>Is OpenShorts a real alternative to ${esc(c.name)}?</h2>
 <p>Yes, with one honest caveat. OpenShorts covers the same core job:
 it takes a long video, finds the segments worth clipping, cuts them, reframes
-them to 9:16 and burns in subtitles. It adds two things ${esc(c.name)} does not
-have, AI voice dubbing into more than 30 languages and an AI UGC generator with
-lip-synced actors. The caveat is that the free edition is self-hosted, which
+them to 9:16 and burns in subtitles. ${
+  c.rows?.['AI voice dubbing, 30+ languages']
+    ? `Where it goes further is the clipping itself: two speakers stacked when both are on camera, screen recordings kept readable over the presenter, and a webcam inset enlarged instead of cropped out.`
+    : `It adds two things ${esc(c.name)} does not have, AI voice dubbing into more than 30 languages and an AI UGC generator with lip-synced actors.`
+} The caveat is that the free edition is self-hosted, which
 means Docker and a machine to run it on. If you want a hosted product with no
 setup, that is OpenShorts Cloud, and it is a paid service above 20 minutes a month.</p>
 
 <h2>What does ${esc(c.name)} cost?</h2>
 <p class="checked">Pricing checked ${esc(c.checked)}. Vendors change plans without notice; verify before you buy.</p>
 ${li(c.tiers.map(([n, d]) => `<strong>${esc(n)}</strong>: ${esc(d)}`))}
+${c.tierNote ? `<p>${esc(c.tierNote)}</p>` : ''}
 <div class="note"><span class="label">The part that catches people out</span><p>${esc(c.gotcha)}</p></div>
 
 <h2>What does OpenShorts cost?</h2>
@@ -118,13 +122,19 @@ ${sources([
     // Titles are kept under 60 characters and descriptions under 160 (measured,
     // not eyeballed): Google truncates past roughly that width, and a truncated
     // description is a worse answer than a shorter deliberate one.
-    title: `Free & Open Source ${c.name} Alternative | OpenShorts`,
-    description: `OpenShorts vs ${c.name}: features and pricing side by side. Self-hosted free under MIT, hosted from $12/month. ${c.name} starts at ${c.entryPrice}.`,
-    h1: `The free, open source ${c.name} alternative`,
-    breadcrumb: [{ name: 'Alternatives', path: '/alternatives' }, { name: c.name }],
-    tldr: [
+    // Brand searches ("vidyo ai", "2short ai") want the brand first in the
+    // title, so a competitor can name its own title, description and h1.
+    title: c.seo?.title ? `${c.seo.title} | OpenShorts` : `Free & Open Source ${c.name} Alternative | OpenShorts`,
+    description:
+      c.seo?.description ||
+      `OpenShorts vs ${c.name}: features and pricing side by side. Self-hosted free under MIT, hosted from $12/month. ${c.name} starts at ${c.entryPrice}.`,
+    h1: c.seo?.h1 || `The free, open source ${c.name} alternative`,
+    breadcrumb: [{ name: 'Alternatives', path: '/alternatives' }, { name: c.seo?.breadcrumb || c.name }],
+    published: c.published,
+    updated: c.checked,
+    tldr: c.tldr || [
       `OpenShorts is an open source AI clip generator you can run yourself for free, or use hosted from $12/month. ${esc(c.name)} is a closed-source cloud product starting at ${esc(c.entryPrice)}.`,
-      `Both find viral moments in long video and reframe them to 9:16 with face tracking. OpenShorts adds dubbing into 30+ languages and AI UGC video with lip-synced actors. ${esc(c.name)} has the more polished caption library.`,
+      `Both find viral moments in long video and reframe them to 9:16 with face tracking. OpenShorts adds dubbing into 30+ languages and AI UGC video with lip-synced actors.${c.edge ? ` ${esc(c.edge)}` : ''}`,
       `Pick ${esc(c.name)} if you want zero setup and nothing else matters. Pick OpenShorts if you want to self-host for privacy, keep costs near zero, or change how the pipeline behaves.`,
     ],
     body,
@@ -136,84 +146,99 @@ ${sources([
 
 const ALTERNATIVES = Object.keys(COMPETITORS)
 
-const hubPage = () => ({
+/* What each tool actually does, for the hub table. The tools are sold under
+ * one label and do different jobs, which is the point the hub exists to make. */
+const HUB_JOB = {
+  'opus-clip': 'Yes',
+  klap: 'Yes',
+  vizard: 'Yes, then you edit',
+  submagic: 'Yes (Magic Clips), captions-first',
+  'vidyo-ai': 'Yes, plus scheduling',
+  '2short': 'Yes, from links',
+  sendshort: 'From the $29 plan',
+}
+
+const hubPage = () => {
+  const rows = ALTERNATIVES.map((slug) => {
+    const c = COMPETITORS[slug]
+    return `<tr><td><a href="/alternatives/${slug}">${esc(c.seo?.breadcrumb || c.name)}</a></td><td>${esc(c.entryPrice)}</td><td>${esc(c.tiers[0][1])}</td><td>${esc(HUB_JOB[slug] || 'Yes')}</td></tr>`
+  }).join('')
+  const checked = ALTERNATIVES.map((s) => COMPETITORS[s].checked).sort()[0]
+  return {
   path: '/alternatives',
-  title: 'Opus Clip & Klap Alternatives (Open Source) | OpenShorts',
+  title: 'Open Source Opus Clip & Klap Alternatives | OpenShorts',
   description:
-    'Side-by-side comparisons of OpenShorts against the four main AI clipping tools, with pricing checked July 2026. Self-hosted free, hosted from $12/month.',
+    'OpenShorts vs Opus Clip, Klap, Vizard, Submagic, Quso (Vidyo.ai), 2short and SendShort: pricing checked October 2026, free plans, and where each wins.',
   h1: 'Open source alternatives to the main AI clipping tools',
   breadcrumb: [{ name: 'Alternatives' }],
+  updated: '2026-10-05',
   tldr: [
     'OpenShorts is the only open source, self-hostable tool in this category. Every other tool on this page is a closed-source cloud service.',
-    'Entry prices as of July 2026: OpenShorts $0 self-hosted or $12/month hosted, Submagic from $14/month, Opus Clip $15/month, Vizard $19.99/month, Klap $29/month.',
-    'The tools are not interchangeable. Submagic does not detect moments at all, Klap does not let you tune the output, and Vizard expects you in a timeline. The individual comparisons below say where each one genuinely wins.',
+    'Cheapest paid entry points as of October 2026: 2short.ai $9.90/month, OpenShorts Cloud $12/month billed monthly, then Submagic $12, Klap $14 and Vizard $14.50 a month on yearly billing, and Opus Clip $15/month. OpenShorts self-hosted is $0 with no cap.',
+    'The tools are not interchangeable. Submagic is a caption editor that added clipping, Quso and SendShort are suites where clipping is one feature, and Vizard expects you in a timeline. The individual comparisons below say where each one genuinely wins.',
   ],
   body: `
 <h2>How these tools actually differ</h2>
-<p>All five are described as "AI clipping tools", which hides the fact that they
-do different jobs. Two of them take a long video and decide what to cut. One of
-them only styles captions on a clip you cut yourself. One is really an editor
-with an AI first pass. Choosing on price alone is how people end up paying for
-two tools that each do half the work. If price is the deciding factor, start with
-what a <a href="/free-ai-clip-generator">free AI clip generator</a> actually
+<p>All of them are described as "AI clipping tools", which hides the fact that
+they do different jobs. Some take a long video and decide what to cut. Some are
+caption editors or social suites with clipping bolted on. One is really an
+editor with an AI first pass. Choosing on price alone is how people end up paying
+for two tools that each do half the work. If price is the deciding factor, start
+with what a <a href="/free-ai-clip-generator">free AI clip generator</a> actually
 includes.</p>
 
-<h2>Entry pricing side by side</h2>
-<p class="checked">Pricing checked 2026-07-27. Verify on the vendor's site before buying.</p>
+<h2>Entry pricing and free plans side by side</h2>
+<p class="checked">Pricing checked ${esc(checked)} on each vendor's pricing page. Verify on the vendor's site before buying.</p>
 <table>
-<thead><tr><th>Tool</th><th>Entry price</th><th>Open source</th><th>Finds moments for you</th></tr></thead>
+<thead><tr><th>Tool</th><th>Cheapest paid plan</th><th>Free plan</th><th>Finds moments in long video</th></tr></thead>
 <tbody>
-<tr><td class="os">OpenShorts</td><td class="os">$0 self-hosted, $12/mo hosted</td><td class="yes">Yes, MIT</td><td>Yes</td></tr>
-<tr><td>Submagic</td><td>From $14/mo</td><td>No</td><td>No, captions only</td></tr>
-<tr><td>Opus Clip</td><td>$15/mo</td><td>No</td><td>Yes</td></tr>
-<tr><td>Vizard</td><td>$19.99/mo</td><td>No</td><td>Yes, then you edit</td></tr>
-<tr><td>Klap</td><td>$29/mo</td><td>No</td><td>Yes</td></tr>
+<tr><td class="os">OpenShorts</td><td class="os">$0 self-hosted, $12/mo hosted</td><td class="os">First video free up to 60 min, then 20 min/month; self-hosted unlimited</td><td class="yes">Yes</td></tr>
+${rows}
 </tbody>
 </table>
 
 <h2>What does OpenShorts cost?</h2>
 ${pricingParagraph}
 
-${faqBlock([
+${faqBlock(HUB_FAQ)}
+`,
+  faq: HUB_FAQ,
+  }
+}
+
+const HUB_FAQ = [
   {
     q: 'What is the cheapest AI clip generator?',
-    a: 'OpenShorts self-hosted is free with no cap, but you supply the machine and your own Google Gemini API key, whose free tier covers 1,500 requests a day. Among hosted products, OpenShorts Cloud is the cheapest paid entry at $12/month, followed by Submagic from $14/month and Opus Clip at $15/month.',
+    a: 'OpenShorts self-hosted is free with no cap, but you supply the machine and your own Google Gemini API key. Among hosted products, the cheapest paid entry points as of October 2026 are 2short.ai at $9.90/month, OpenShorts Cloud at $12/month billed monthly, and Submagic ($12) and Klap ($14) on yearly billing.',
   },
   {
     q: 'Which AI clipping tools are open source?',
-    a: 'OpenShorts is MIT-licensed with full source on GitHub. Opus Clip, Klap, Vizard and Submagic are all closed-source commercial products.',
+    a: 'OpenShorts is MIT-licensed with full source on GitHub. Opus Clip, Klap, Vizard, Submagic, Quso (formerly Vidyo.ai), 2short.ai and SendShort are all closed-source commercial products.',
   },
-])}
-`,
-  faq: [
-    {
-      q: 'What is the cheapest AI clip generator?',
-      a: 'OpenShorts self-hosted is free with no cap. Among hosted products OpenShorts Cloud is the cheapest paid entry at $12/month, followed by Submagic from $14/month and Opus Clip at $15/month.',
-    },
-    {
-      q: 'Which AI clipping tools are open source?',
-      a: 'OpenShorts is MIT-licensed with full source on GitHub. Opus Clip, Klap, Vizard and Submagic are closed-source commercial products.',
-    },
-  ],
-})
+  {
+    q: 'Which AI clipping tools have a free plan?',
+    a: 'Opus Clip (60 minutes a month, watermarked), Vizard (60 credits a month, 720p, watermarked), Quso (75 credits a month, 720p), 2short.ai (30 minutes a month, YouTube links only, no watermark), and OpenShorts (first video free up to 60 minutes, then 20 minutes a month, or unlimited self-hosted). Klap gives one free video, SendShort three, and Submagic offers a trial instead of a free plan.',
+  },
+]
 
 const freeClipGenerator = () => ({
   path: '/free-ai-clip-generator',
   title: 'Free AI Clip Generator & Clipper, No Watermark | OpenShorts',
   description:
-    'Free AI clipper that turns long videos into 3 to 15 vertical clips with subtitles. Self-hosted: no watermark, no cap. Hosted: 20 free minutes a month.',
-  h1: 'A free AI clip generator that is actually free',
+    'Free AI clipper that turns long videos into 3 to 15 vertical clips with subtitles. Self-hosted: no watermark, no cap. Hosted: first video free up to 60 min.',
+  h1: 'A free AI clip generator and clipping tool that is actually free',
   breadcrumb: [{ name: 'Free AI clip generator' }],
+  updated: '2026-10-05',
   cta: {
     label: 'Start free',
     title: 'Clip your own video in a few minutes',
-    body: 'Paste a YouTube link, get 3 to 15 vertical clips with subtitles. 20 free minutes a month, no credit card.',
+    body: 'Paste a YouTube link, get 3 to 15 vertical clips with subtitles. Your first video is free up to 60 minutes, no credit card.',
     button: 'Get free clips',
   },
   tldr: [
     'OpenShorts self-hosted is a free AI clip generator under the MIT licence. No watermark, no usage cap, no subscription. You run it with Docker and supply your own Google Gemini API key, whose free tier covers 1,500 requests a day.',
     'It turns a long video into 3 to 15 vertical clips: faster-whisper transcribes at word level, PySceneDetect finds the cuts, Gemini 3.1 Flash-Lite scores the moments, and MediaPipe face tracking reframes each one to 9:16.',
-    'If you do not want to run anything, OpenShorts Cloud gives you 20 free minutes a month with a watermark, and paid plans from $12/month without one.',
+    'If you do not want to run anything, OpenShorts Cloud is a free AI clipping tool in the browser: your first video is clipped whole up to 60 minutes, then 20 free minutes a month, with a watermark. Paid plans from $12/month remove it.',
   ],
   body: `
 <h2>What does "free" actually mean here?</h2>
@@ -245,9 +270,9 @@ for you.</p>
 <h2>Free AI clipper, free clipping AI, free clipping website: which one is this?</h2>
 <p>All three searches mean the same job: something that watches a long video and
 cuts the good parts into vertical clips without you paying. OpenShorts is that in
-two forms. As a <strong>free clipping website</strong>, openshorts.app clips 20
-minutes of video a month in the browser with no install and no credit card; the
-clips carry a small watermark. As a <strong>free AI clipper you run
+two forms. As a <strong>free clipping website</strong>, openshorts.app clips your
+first video whole up to 60 minutes, then 20 minutes of video a month, in the
+browser with no install and no credit card; the clips carry a small watermark. As a <strong>free AI clipper you run
 yourself</strong>, the same code from GitHub has no watermark and no monthly cap.
 Either way the clipping AI is the same: Gemini picks the moments, face tracking
 reframes them and the subtitles come from a word-level transcript. If you only
@@ -360,9 +385,10 @@ billing, managed keys and the hosted-service infrastructure, is carved out under
 a separate commercial licence and is not needed to self-host.</p>
 
 <h2>How does it compare to the closed-source tools?</h2>
-<p>OpenShorts is the only open source option in this category. As of July 2026,
-Opus Clip starts at $15/month, Submagic from $14/month, Vizard at $19.99/month
-and Klap at $29/month, and none of them can be self-hosted or audited. The
+<p>OpenShorts is the only open source option in this category. As of October 2026,
+the cheapest paid plans are Submagic at $12/month and Klap at $14/month (both
+billed yearly), Vizard at $14.50/month yearly or $29 monthly, and Opus Clip at
+$15/month, and none of them can be self-hosted or audited. The
 trade-off is real in both directions: they ship more caption presets and require
 no setup, and you cannot read a line of what they do with your video.</p>
 
@@ -482,9 +508,9 @@ const noWatermark = () => ({
     button: 'Get free clips',
   },
   published: '2026-08-04',
-  updated: '2026-08-04',
+  updated: '2026-10-05',
   tldr: [
-    'Every hosted "free" clip generator watermarks its exports, because the watermark is the upsell. The one structural exception is software you run yourself. OpenShorts self-hosted is MIT-licensed, runs with Docker, and never watermarks anything because there is no watermark code in it.',
+    'Almost every hosted "free" clip generator watermarks its exports, because the watermark is the upsell. The one structural exception is software you run yourself. OpenShorts self-hosted is MIT-licensed, runs with Docker, and never watermarks anything because there is no watermark code in it.',
     'OpenShorts Cloud, the hosted service, follows the same rule as every other hosted tool and says so plainly: the free 20 minutes a month carry a watermark, and paid plans from $12/month do not.',
     'If a tool claims free, unlimited and unwatermarked at once and it is a hosted service, one of the three claims is temporary.',
   ],
@@ -507,18 +533,22 @@ is not a trial build with limits switched off, it is the same MIT-licensed
 source the hosted service runs, and you can read it line by line.</p>
 
 <h2>How the main tools handle watermarks</h2>
-<p class="checked">Checked 2026-08-04 on each vendor's public pricing page. Vendors change terms without notice.</p>
+<p class="checked">Checked 2026-10-05 on each vendor's public pricing page. Vendors change terms without notice.</p>
 <table>
-<thead><tr><th>Tool</th><th>Free tier watermark</th><th>Cheapest way to remove it</th></tr></thead>
+<thead><tr><th>Tool</th><th>Free tier</th><th>Cheapest way to remove the watermark</th></tr></thead>
 <tbody>
-<tr><td class="os">OpenShorts self-hosted</td><td class="os yes">Never</td><td class="os">Nothing to remove</td></tr>
-<tr><td class="os">OpenShorts Cloud</td><td class="os">Yes, on the free 20 min/month</td><td class="os">$12/month</td></tr>
-<tr><td>Opus Clip</td><td>Yes, and free-plan exports leave storage after 3 days</td><td>Starter, $15/month</td></tr>
-<tr><td>Klap</td><td>Free tier does not export at all</td><td>$29/month</td></tr>
-<tr><td>Vizard</td><td>Free plan allows 120 upload minutes and 10 exports</td><td>From $19.99/month</td></tr>
-<tr><td>Submagic</td><td>Yes, 3 videos per month</td><td>From $14/month annual</td></tr>
+<tr><td class="os">OpenShorts self-hosted</td><td class="os yes">Never watermarked, no cap</td><td class="os">Nothing to remove</td></tr>
+<tr><td class="os">OpenShorts Cloud</td><td class="os">Watermarked: first video up to 60 min, then 20 min/month</td><td class="os">$12/month, and paying also removes it from clips already made</td></tr>
+<tr><td>Opus Clip</td><td>Watermarked, 60 credits/month, export within 3 days</td><td>Starter, $15/month</td></tr>
+<tr><td>Vizard</td><td>Watermarked, 60 credits/month, 720p, exports up to 10 min</td><td>$14.50/month yearly or $29 monthly</td></tr>
+<tr><td>Quso (Vidyo.ai)</td><td>75 credits/month at 720p, watermark not stated</td><td>$19/month yearly or $29 monthly</td></tr>
+<tr><td>2short.ai</td><td class="yes">No watermark, 30 min/month, YouTube links only</td><td>Nothing to remove</td></tr>
+<tr><td>Klap</td><td>One free video, no ongoing free plan</td><td>$14/month billed yearly</td></tr>
+<tr><td>Submagic</td><td>No free plan, a trial instead</td><td>$12/month billed yearly</td></tr>
 </tbody>
 </table>
+<p>2short.ai is the exception worth knowing about: its free plan does not
+watermark. The catch is the scope, 30 minutes a month from YouTube links only.</p>
 
 <h2>What you trade for the self-hosted zero</h2>
 <p>Honesty cuts both ways. Self-hosting costs you a machine and some patience:
@@ -544,7 +574,7 @@ ${faqBlock([
 ])}
 
 ${sources([
-  'Vendor free-tier and watermark terms checked 2026-08-04 on each public pricing page.',
+  'Vendor free-tier and watermark terms checked 2026-10-05 on each public pricing page.',
   `OpenShorts pipeline source at <a href="${SITE.repo}" rel="noopener">github.com/mutonby/openshorts</a>, where the absence of watermark code is checkable.`,
 ])}
 `,
@@ -651,13 +681,13 @@ ${sources([
  * and active-speaker cutting are capabilities the competitor pages cannot show. */
 const podcastToShorts = () => ({
   path: '/podcast-to-shorts',
-  title: 'Podcast to Shorts With Both Speakers in Frame | OpenShorts',
+  title: 'Podcast Clips: AI Clip Maker for Video Podcasts | OpenShorts',
   description:
-    'Paste a podcast episode, get vertical clips with subtitles that keep both speakers on screen. 20 free minutes a month, or self-host it free under MIT.',
-  h1: 'Turn a podcast into shorts without cropping out half the conversation',
-  breadcrumb: [{ name: 'Podcast to shorts' }],
+    'Make podcast clips from a full episode: vertical shorts with subtitles that keep both speakers on screen. First episode free up to 60 minutes, or self-host free.',
+  h1: 'Podcast clips that keep both speakers in frame',
+  breadcrumb: [{ name: 'Podcast clips' }],
   published: '2026-08-04',
-  updated: '2026-08-04',
+  updated: '2026-10-05',
   tldr: [
     'A two-person podcast is the hardest input an auto-clipper faces: a single centered crop shows the wrong person half the time, or an empty chair. OpenShorts detects a real two-shot and renders both speakers stacked in half-frames, so a reply never happens off screen.',
     'The rest of the pipeline is the same as for any long video: word-level transcription, scene detection, Gemini scoring the 3 to 15 strongest moments, subtitles burned in, and direct publishing to TikTok, Instagram Reels and YouTube Shorts.',
@@ -695,22 +725,45 @@ one side of the table.</p>
 
 <h2>What a full episode costs to clip</h2>
 <p>Credit-metered tools bill on the length of the video you import, not on the
-clips you keep. As of August 2026, a 60-minute episode costs 60 credits at Opus
-Clip or Vizard whether it yields 5 usable clips or 20, and a weekly show at that
+clips you keep. As of October 2026, a 60-minute episode costs 60 credits at Opus
+Clip, Vizard or Quso whether it yields 5 usable clips or 20, and a weekly show at that
 length runs past the entry plans of both. OpenShorts prices the other way
 around:</p>
 ${pricingParagraph}
 
-<h2>What about audio-only podcasts?</h2>
-<p>OpenShorts clips video. If your show is audio-only, the pipeline has nothing
-to reframe, and tools that generate waveform audiograms serve that case better.
-The moment you record video, even a static two-camera setup, everything on this
-page applies.</p>
+<h2>Podcast clips or audiograms: which one do you need?</h2>
+<p>"Podcast clips" means two different things depending on how the show is
+recorded. If you record <strong>video</strong>, even a static two-camera setup,
+you want vertical 9:16 clips of the speakers with captions, usually 30 to 90
+seconds, for TikTok, Reels and Shorts. That is what this page and OpenShorts are
+about. If the show is <strong>audio-only</strong>, there is nothing to reframe,
+and what you want is an audiogram: a waveform and captions over a still image.
+Audiogram tools such as Headliner serve that case better than any video clipper.</p>
+
+<h2>How the podcast clip makers compare</h2>
+<p class="checked">Checked 2026-10-05 on each vendor's pricing page.</p>
+<table>
+<thead><tr><th>Tool</th><th>How it makes podcast clips</th><th>Free plan</th></tr></thead>
+<tbody>
+<tr><td class="os">OpenShorts</td><td class="os">Paste the episode link or upload it; AI picks 3 to 15 moments and keeps both speakers in frame</td><td class="os">First video free up to 60 min, then 20 min/month, watermarked; self-hosted unlimited and unwatermarked</td></tr>
+<tr><td>Riverside</td><td>Magic Clips, inside the recording studio</td><td>Yes, with a Riverside watermark; Pro ($29/month) removes it</td></tr>
+<tr><td>Opus Clip</td><td>General clipper with a podcast clip maker page</td><td>60 credits/month, watermarked</td></tr>
+<tr><td>Headliner</td><td>Audiograms for audio-only shows, video clipping in beta</td><td>One unwatermarked audiogram a month, the rest watermarked</td></tr>
+</tbody>
+</table>
+<p>If you already record in Riverside, its clips come with the recording and that
+convenience is real. If you record anywhere else, or publish the full episode to
+YouTube first, a clipper that starts from the link avoids exporting and
+re-uploading an hour of video.</p>
 
 ${faqBlock([
   {
     q: 'How do I turn a podcast into clips for free?',
-    a: 'Self-host OpenShorts: clone the MIT-licensed repo, run docker compose up, add a free-tier Google Gemini API key and paste your episode link. No watermark and no cap. If you would rather not run anything, OpenShorts Cloud clips 20 minutes a month free with a watermark, and paid plans start at $12/month.',
+    a: 'Self-host OpenShorts: clone the MIT-licensed repo, run docker compose up, add a free-tier Google Gemini API key and paste your episode link. No watermark and no cap. If you would rather not run anything, OpenShorts Cloud clips your first episode free up to 60 minutes, then 20 minutes a month, with a watermark; paid plans start at $12/month.',
+  },
+  {
+    q: 'What is the best podcast clip maker?',
+    a: 'It depends on how you record. For a video podcast with two people on camera, pick a tool that keeps both in frame: OpenShorts stacks them in a split layout when both are visible. If you record in Riverside, its built-in Magic Clips are the most convenient. For an audio-only show, an audiogram tool such as Headliner fits better than any video clipper.',
   },
   {
     q: 'How does it handle two people talking?',
@@ -723,7 +776,7 @@ ${faqBlock([
 ])}
 
 ${sources([
-  'Competitor per-minute credit billing checked 2026-08-04 on vendor pricing and help pages.',
+  'Competitor per-minute credit billing checked 2026-10-05 on vendor pricing and help pages.',
   `Split-layout and speaker-cut implementation in the project source at <a href="${SITE.repo}" rel="noopener">github.com/mutonby/openshorts</a>.`,
 ])}
 `,
@@ -739,9 +792,10 @@ ${sources([
   ],
 })
 
-/* The one checkable fact this page is built on: importing from a link is free
- * here and paid at the market leader. Everything else is the standard pipeline
- * told from the URL-first angle. */
+/* Built on the URL-first angle. It used to rest on Opus Clip's free plan being
+ * upload-only; that stopped being true (checked 2026-10-05), so the page now
+ * makes the claim that still holds: links work on every tier here, and not at
+ * every competitor (2short and SendShort gate imports or clipping by plan). */
 const youtubeConverter = () => ({
   path: '/youtube-to-shorts-converter',
   title: 'YouTube to Shorts Converter: Paste the Link | OpenShorts',
@@ -750,10 +804,10 @@ const youtubeConverter = () => ({
   h1: 'A YouTube to Shorts converter that starts from the link',
   breadcrumb: [{ name: 'YouTube to Shorts converter' }],
   published: '2026-08-04',
-  updated: '2026-08-04',
+  updated: '2026-10-05',
   tldr: [
     'Paste a YouTube URL, get back 3 to 15 vertical clips with subtitles, sized for Shorts, Reels and TikTok. No downloading the source and re-uploading it first.',
-    'The link-first flow is free on both editions: the self-hosted MIT edition has no cap, and the hosted free tier covers 20 minutes a month. As of August 2026, Opus Clip’s free plan is upload-only and importing from a link requires a paid plan.',
+    'The link-first flow is free on both editions: the self-hosted MIT edition has no cap, and the hosted free tier clips your first video whole up to 60 minutes, then 20 minutes a month. Uploads work on every tier too, for sources that are not online.',
     'Convert videos you have the rights to: your own channel, your clients’ with permission, or licensed footage.',
   ],
   body: `
@@ -767,14 +821,14 @@ const youtubeConverter = () => ({
 </ol>
 
 <h2>Why starting from the link matters</h2>
-<p class="checked">Competitor terms checked 2026-08-04 on public pricing pages.</p>
+<p class="checked">Competitor terms checked 2026-10-05 on public pricing pages.</p>
 <p>Most long videos worth clipping already live on YouTube, so a converter that
 only accepts uploads adds a detour: fetch the file with a downloader, wait,
-re-upload gigabytes, wait again. It also decides who can use the free tier at
-all. As of August 2026, Opus Clip's free plan accepts uploads only, with link
-import reserved for paid plans. OpenShorts accepts links on every tier,
-including both free ones, because the fetch step costs the pipeline almost
-nothing and the detour costs you the most time of any step.</p>
+re-upload gigabytes, wait again. OpenShorts accepts links and uploads on every
+tier, including both free ones. Not every tool does both: as of October 2026
+2short.ai takes YouTube links only on its free plan and adds Drive and URL
+imports from its paid plans, and SendShort only clips long videos from its
+$29/month plan up.</p>
 
 <h2>What comes out the other end</h2>
 <p>Vertical 9:16 clips of 15 to 60 seconds with word-level subtitles burned in,
@@ -1259,127 +1313,136 @@ ${sources([
  * by people who are already paying a competitor or about to: what it costs
  * ("opus clips pricing", "opus clip free"), what the free plan withholds
  * ("opus clip free trial"), and what the brand names mean (opus.pro is called
- * "Opus AI" and its mid tier is "Opus Pro" — both are searched far more than
+ * "Opus AI" and its mid tier is "Opus Pro"; both are searched far more than
  * the product name is spelled).
  *
  * Every number that exists in data.js is read from there rather than retyped,
  * so the three hand-synced price lists cannot drift further apart.
  * ------------------------------------------------------------------------- */
 const OPUS = COMPETITORS['opus-clip']
-
-const opusClipPricing = () => {
-  const tierRows = OPUS.tiers
+const opusTierTable = (filter = () => true) =>
+  `<table>
+<thead><tr><th>Plan</th><th>What it includes</th></tr></thead>
+<tbody>${OPUS.tiers
+    .filter(([n]) => filter(n))
     .map(([n, d]) => `<tr><td class="os">${esc(n)}</td><td>${esc(d)}</td></tr>`)
-    .join('')
-  return {
-    path: '/opus-clip-pricing',
-    title: 'Opus Clip Pricing: Credits, Free Plan, Trials | OpenShorts',
-    description:
-      'What Opus Clip costs in 2026: credits are billed per minute of source video, not per clip, so a 60-minute podcast costs 60 credits whatever it yields.',
-    h1: 'What Opus Clip actually costs',
-    breadcrumb: [
-      { name: 'Alternatives', path: '/alternatives' },
-      { name: 'Opus Clip', path: '/alternatives/opus-clip' },
-      { name: 'Pricing' },
-    ],
-    published: '2026-09-17',
-    updated: '2026-09-17',
-    cta: {
-      label: 'Before you upgrade',
-      title: 'Run one of your videos here first',
-      body: 'Paste a link and compare the output against your last Opus Clip export. 20 free minutes a month, no credit card.',
-      button: 'Get free clips',
-    },
-    tldr: [
-      `Opus Clip's entry price is ${esc(OPUS.entryPrice)}, and the credit it charges for is one <strong>minute of source video you import</strong>, not one clip you export. A 60-minute podcast costs 60 credits whether it yields 5 clips or 20.`,
-      'The free tier is 60 source minutes a month, watermarked, 720p. There is no separate time-boxed trial published alongside it.',
-      `OpenShorts prices the other way round: $0 self-hosted with no meter at all, or the hosted service with 20 free minutes a month and flat paid plans from $12/month.`,
-    ],
-    body: `
+    .join('')}</tbody>
+</table>`
+
+const opusClipPricing = () => ({
+  path: '/opus-clip-pricing',
+  title: 'Opus Clip Pricing 2026: Plans, Trial, Credits | OpenShorts',
+  description:
+    'Opus Clip pricing in October 2026: free plan with 60 credits, Starter $15/month, Pro $29 or $14.50/month yearly, a 7-day trial, and what a credit is.',
+  h1: 'Opus Clip pricing in 2026: every plan, the trial, and what a credit is',
+  breadcrumb: [
+    { name: 'Alternatives', path: '/alternatives' },
+    { name: 'Opus Clip', path: '/alternatives/opus-clip' },
+    { name: 'Pricing' },
+  ],
+  published: '2026-09-17',
+  updated: OPUS.checked,
+  cta: {
+    label: 'Before you upgrade',
+    title: 'Run one of your videos here first',
+    body: 'Paste a link and compare the output against your last Opus Clip export. First video free up to 60 minutes, no credit card.',
+    button: 'Get free clips',
+  },
+  tldr: [
+    `Opus Clip has four plans (checked ${esc(OPUS.checked)}): <strong>Free</strong> with 60 credits a month and a watermark, <strong>Starter</strong> at $15/month for 150 credits, <strong>Pro</strong> at $29/month or $14.50/month billed yearly for 300 credits, and a custom-priced <strong>Business</strong> plan.`,
+    'One credit is one <strong>minute of source video you import</strong>, not one clip you export. A 60-minute podcast costs 60 credits whether it yields 5 clips or 20. Unused credits roll over for two months.',
+    'There is a 7-day free trial of Pro with no credit card, but trial exports keep the watermark. OpenShorts prices the other way round: $0 self-hosted with no meter, or hosted from $12/month for 100 minutes with no watermark.',
+  ],
+  body: `
+<h2>How much does Opus Clip cost?</h2>
+<p class="checked">Checked ${esc(OPUS.checked)} on the vendor's public pricing and help pages. Vendors change plans without notice; verify before you buy.</p>
+${opusTierTable()}
+<p>Starter is sold month to month only. The yearly discount (about 50%) applies
+to Pro, which is why Pro billed yearly, at $14.50/month, costs less than Starter
+billed monthly, at $15/month, while giving twice the credits.</p>
+
 <h2>How Opus Clip's credit system works</h2>
 <p>The unit Opus Clip bills in is not the clip. It is the minute of video you
 import. ${esc(OPUS.gotcha)}</p>
-<p>That single design decision is what makes the plans hard to compare against
-each other, and why the tiers below cost what they cost. If your sources are
-short (a 60-second TikTok you want restyled) the meter barely moves. If they are
-long (a 90-minute interview, a weekly show) the meter is the whole bill, and the
-number of clips you keep never enters into it.</p>
-
-<h2>Opus Clip plans and prices</h2>
-<p class="checked">Pricing checked ${esc(OPUS.checked)} on the vendor's public pricing page. Vendors change plans without notice; verify before you buy.</p>
-<table>
-<thead><tr><th>Plan</th><th>What it includes</th></tr></thead>
-<tbody>${tierRows}</tbody>
-</table>
+<ul>
+<li>A video shorter than a minute still costs 1 credit, and partial minutes round down: a 4.5-minute video costs 4.</li>
+<li>Credits on a monthly plan expire after 60 days, so unused ones roll over one month.</li>
+<li>Sources can be up to 10 hours long, which at one credit a minute is 600 credits, two months of Pro.</li>
+</ul>
+<p>If your sources are short, the meter barely moves. If they are long (a
+90-minute interview, a weekly show) the meter is the whole bill, and the number
+of clips you keep never enters into it.</p>
 
 <h2>What does the free plan include?</h2>
-<p>60 minutes of source video a month, 720p exports and a watermark. Two details
-that the pricing table states and the marketing copy tends to bury: free-plan
-exports leave Opus Clip's storage after three days, and link import (pasting a
-YouTube URL instead of uploading a file) is a paid-plan feature as of August
-2026. If your source is already on YouTube, the free plan may not reach it.</p>
+<p>60 credits a month, so 60 minutes of source video, with exports up to 1080p
+that carry a watermark. There is no editing on the free plan, the virality score
+is hidden, and clips have to be exported within 3 days. It imports from YouTube
+links and local files.</p>
 
-<h2>Is there a free trial?</h2>
-<p>As of ${esc(OPUS.checked)} the pricing page lists a free tier rather than a
-time-boxed trial. When people search for an "Opus Clip free trial" they are
-usually describing that free tier, or looking for a way to test the unwatermarked
-output before paying. The distinction matters: a trial expires and the free tier
-does not, but neither one removes the watermark.</p>
+<h2>Is there an Opus Clip free trial?</h2>
+<p>Yes: 7 days of Pro, no credit card. Two details matter. Trial exports still
+carry the watermark, and the trial leaves out 4K, social posting, the 100 GB of
+storage and team seats. When the 7 days end, the account drops to the free plan
+rather than charging you. Upgrading later removes the watermark from projects you
+made on the free plan or the trial.</p>
 <div class="note"><span class="label">The cheapest honest test</span><p>The
 watermark is the thing you are trying to evaluate past. If the question is
-whether the pipeline is good enough for your footage, a self-hosted run on one
-episode answers it at no cost, with no watermark, because there is no metering
-or watermark code in the self-hosted edition at all.</p></div>
+whether the pipeline is good enough for your footage, a self-hosted OpenShorts
+run on one episode answers it at no cost and with no watermark, because the
+self-hosted edition contains no metering or watermark code.</p></div>
+
+<h2>Opus Clip vs OpenShorts on price</h2>
+<table>
+<thead><tr><th></th><th>Opus Clip</th><th>OpenShorts</th></tr></thead>
+<tbody>
+<tr><td>Free</td><td>60 credits/month, watermarked</td><td class="os">Self-hosted: unlimited, no watermark. Cloud: first video free up to 60 min, then 20 min/month, watermarked</td></tr>
+<tr><td>Entry paid plan</td><td>$15/month for 150 minutes</td><td class="os">$12/month for 100 minutes, no watermark</td></tr>
+<tr><td>Unit of billing</td><td>1 credit per source minute</td><td class="os">1 minute per source minute, no per-clip or per-call charge</td></tr>
+<tr><td>Self-hosting</td><td>No</td><td class="os">Yes, MIT licence, Docker</td></tr>
+</tbody>
+</table>
 
 <h2>What does OpenShorts cost?</h2>
 ${pricingParagraph}
-<p>Per source minute, that is the comparison worth making: Opus Clip Starter at
-$15/month buys 150 source minutes, and OpenShorts Cloud at $12/month buys 100
-minutes with no watermark on any paid plan. Self-hosted, the meter disappears
-entirely and the only cost is the machine you already own.</p>
 
-${faqBlock([
-  {
-    q: 'How much does Opus Clip cost per month?',
-    a: `${OPUS.name} starts at ${OPUS.entryPrice} and its published tiers run up to the Business plan, which is custom-priced. The entry tier and the 720p/1080p split are in the table above, checked ${OPUS.checked}.`,
-  },
-  {
-    q: 'What counts as a credit in Opus Clip?',
-    a: 'One minute of source video you import, not one clip you export. A 60-minute episode consumes 60 credits regardless of how many clips you keep from it, so the cost of a job is set by your input length rather than your output.',
-  },
-  {
-    q: 'Is there a free Opus Clip plan?',
-    a: 'Yes: 60 source minutes a month with watermarked 720p exports, and free-plan exports are removed from storage after three days. OpenShorts Cloud also has a free tier (20 minutes a month, watermarked, no credit card), and the self-hosted edition is free with no watermark and no cap at all.',
-  },
-])}
+${faqBlock(OPUS_PRICING_FAQ)}
 
 ${sources([
-  `${esc(OPUS.name)} plans and credit rules checked ${esc(OPUS.checked)} on the vendor's public pricing and help pages.`,
+  `${esc(OPUS.name)} plans, trial and credit rules checked ${esc(OPUS.checked)} on opus.pro/pricing and the OpusClip help centre (how credits are consumed, free trial, watermark).`,
   `OpenShorts pricing from <a href="/alternatives/opus-clip">the full comparison</a> and the project source at <a href="${SITE.repo}" rel="noopener">github.com/mutonby/openshorts</a>.`,
 ])}
 `,
-    faq: [
-      {
-        q: 'How much does Opus Clip cost per month?',
-        a: `${OPUS.name} starts at ${OPUS.entryPrice}, with higher tiers priced by source minutes and export resolution.`,
-      },
-      {
-        q: 'Is there a free Opus Clip plan or trial?',
-        a: 'There is a free tier: 60 source minutes a month, watermarked 720p exports, no time limit. Self-hosted OpenShorts is free with no watermark and no cap; OpenShorts Cloud gives 20 watermarked minutes a month and paid plans from $12/month.',
-      },
-      {
-        q: 'What is a credit in Opus Clip?',
-        a: 'One minute of source video imported, not one clip exported: a 60-minute episode costs 60 credits however many clips it yields.',
-      },
-    ],
-  }
-}
+  faq: OPUS_PRICING_FAQ,
+})
+
+const OPUS_PRICING_FAQ = [
+  {
+    q: 'How much does Opus Clip cost per month?',
+    a: 'Starter is $15/month for 150 credits (minutes of source video). Pro is $29/month, or $14.50/month billed yearly, for 300 credits. There is a free plan with 60 credits a month and a custom-priced Business plan. Checked October 2026.',
+  },
+  {
+    q: 'Is Opus Clip free?',
+    a: 'It has a free plan: 60 minutes of source video a month, exports up to 1080p with a watermark, no editing, and clips must be exported within 3 days. There is also a 7-day Pro trial with no credit card, still watermarked.',
+  },
+  {
+    q: 'Does Opus Clip have a free trial?',
+    a: 'Yes, 7 days of Pro with no credit card. Trial exports carry the watermark and the trial excludes 4K, social posting and team seats. When it ends the account becomes a free account instead of charging you.',
+  },
+  {
+    q: 'What counts as a credit in Opus Clip?',
+    a: 'One minute of source video you import, not one clip you export. A 60-minute episode consumes 60 credits regardless of how many clips you keep. Under a minute costs 1 credit, partial minutes round down, and credits on monthly plans expire after 60 days.',
+  },
+  {
+    q: 'What is a cheaper alternative to Opus Clip?',
+    a: 'OpenShorts: free and unlimited when self-hosted under MIT, or $12/month hosted for 100 minutes with no watermark. The hosted free plan clips your first video whole up to 60 minutes, then 20 minutes a month, with no credit card.',
+  },
+]
 
 const opusClipFree = () => ({
   path: '/opus-clip-free-alternative',
-  title: 'Free Opus Clip Alternative: Two Ways to Pay $0 | OpenShorts',
+  title: 'Free Opus Clip Alternative, No Watermark | OpenShorts',
   description:
-    "Opus Clip's free tier watermarks exports and caps you at 60 minutes a month. Two genuinely free routes to the same clips, and neither one watermarks.",
+    "Opus Clip's free plan watermarks every export, and so does its 7-day trial. Two genuinely free routes to the same clips, one of them with no watermark at all.",
   h1: 'A free Opus Clip alternative, without the watermark trap',
   breadcrumb: [
     { name: 'Alternatives', path: '/alternatives' },
@@ -1387,7 +1450,7 @@ const opusClipFree = () => ({
     { name: 'Free alternative' },
   ],
   published: '2026-09-17',
-  updated: '2026-09-17',
+  updated: OPUS.checked,
   cta: {
     label: 'Free, both ways',
     title: 'First video free, no credit card',
@@ -1395,8 +1458,8 @@ const opusClipFree = () => ({
     button: 'Get free clips',
   },
   tldr: [
-    `Opus Clip's free tier is real but conditional: 60 source minutes a month, 720p, watermarked, and free-plan exports are deleted after three days. Its link import is a paid feature, so a YouTube URL does not work there.`,
-    'OpenShorts has two free routes and neither one watermarks anything on the self-hosted side. Self-hosted is MIT-licensed, runs with Docker, and has no metering or watermark code in it. The hosted free tier is 20 minutes a month with a watermark and no credit card.',
+    `Opus Clip's free plan is real but conditional: 60 minutes of source a month, watermarked exports, no editing, and clips must be exported within 3 days. Its 7-day Pro trial is watermarked too.`,
+    'OpenShorts has two free routes. Self-hosted is MIT-licensed, runs with Docker, and has no metering or watermark code in it. The hosted free plan clips your first video whole up to 60 minutes, then 20 minutes a month, watermarked, no credit card.',
     'The honest trade: self-hosting costs you a machine and 5 to 8 minutes of processing per 8 minutes of video on CPU. If that is not worth it, the paid answer here is $12/month, not $15.',
   ],
   body: `
@@ -1409,11 +1472,12 @@ stays free when your usage grows.</p>
 <thead><tr><th>Route</th><th>Cost</th><th>Watermark</th><th>Cap</th></tr></thead>
 <tbody>
 <tr><td class="os">OpenShorts self-hosted</td><td class="os">$0</td><td class="os yes">Never</td><td class="os">None, no metering code</td></tr>
-<tr><td class="os">OpenShorts Cloud free</td><td class="os">$0</td><td class="os">Yes</td><td class="os">20 minutes/month</td></tr>
-<tr><td>Opus Clip free</td><td>$0</td><td>Yes</td><td>60 minutes/month, link import excluded</td></tr>
+<tr><td class="os">OpenShorts Cloud free</td><td class="os">$0</td><td class="os">Yes</td><td class="os">First video up to 60 min, then 20 min/month</td></tr>
+<tr><td>Opus Clip free</td><td>$0</td><td>Yes</td><td>60 min/month, export within 3 days</td></tr>
+<tr><td>Opus Clip Pro trial</td><td>$0 for 7 days</td><td>Yes</td><td>Pro allowance, no 4K or posting</td></tr>
 </tbody>
 </table>
-<p class="checked">Opus Clip free-tier terms checked 2026-08-04; OpenShorts
+<p class="checked">Opus Clip terms checked ${esc(OPUS.checked)}; OpenShorts
 Cloud terms are ours and current.</p>
 
 <h2>The first free route: run it yourself</h2>
@@ -1427,138 +1491,144 @@ An 8-minute video takes roughly 5 to 8 minutes to process on CPU and about 50
 seconds on an NVIDIA GPU. For a weekly podcast that is a coffee break; for
 twenty videos a day it is a job.</p>
 
-<h2>The second free route: the hosted free tier</h2>
-<p>If you would rather not run anything, ${esc(EDITIONS.cloud.name)} gives you
-${EDITIONS.cloud.freeMinutes} minutes a month with a watermark and no credit
-card, and it accepts a pasted YouTube link on that tier. Paid plans from
-$${EDITIONS.cloud.lowPrice}/month drop the watermark. It is a smaller allowance
-than Opus Clip's free tier and it does not try to hide that.</p>
+<h2>The second free route: the hosted free plan</h2>
+<p>If you would rather not run anything, ${esc(EDITIONS.cloud.name)} clips your
+first video whole up to 60 minutes, then gives you ${EDITIONS.cloud.freeMinutes}
+minutes a month, with a watermark and no credit card. It takes a YouTube link or
+an upload. Paid plans from $${EDITIONS.cloud.lowPrice}/month drop the watermark,
+including from the clips you already made on the free plan.</p>
 
 <h2>When paying is the honest answer</h2>
 <p>If you process hours of source video every week and have no machine to spare,
-the flat plan is cheaper than either free tier is convenient. What is worth
-avoiding is paying a per-minute credit meter for long sources: as of
-${esc(OPUS.checked)} a 60-minute episode consumes 60 credits at Opus Clip no
-matter how many clips you keep, and a weekly show at that length runs past the
-entry tier's allowance by the second episode of the month.</p>
+a flat plan is cheaper than either free tier is convenient. What is worth
+avoiding is paying a per-minute credit meter for long sources: a 60-minute
+episode consumes 60 credits at Opus Clip no matter how many clips you keep, and
+a weekly show at that length runs past Starter's 150 credits by the third
+episode of the month.</p>
 
-${faqBlock([
+${faqBlock(OPUS_FREE_FAQ)}
+
+${sources([
+  `Opus Clip free plan, trial and watermark terms checked ${esc(OPUS.checked)} on opus.pro/pricing and the OpusClip help centre.`,
+  `OpenShorts licence carve-out (MIT core, commercial <code>cloud/</code> directory) in the project source at <a href="${SITE.repo}" rel="noopener">github.com/mutonby/openshorts</a>.`,
+])}
+`,
+  faq: OPUS_FREE_FAQ,
+})
+
+const OPUS_FREE_FAQ = [
   {
     q: 'Is there a free alternative to Opus Clip with no watermark?',
     a: 'Yes: OpenShorts self-hosted. It is MIT-licensed, runs on your own machine with Docker, and never adds a watermark because the self-hosted edition contains no watermark code. You supply a Google Gemini API key, whose free tier covers 1,500 requests a day.',
   },
   {
     q: 'Can I use Opus Clip for free every month?',
-    a: 'Yes, within its free tier: 60 source minutes a month at 720p with a watermark, and exports are removed from storage after three days. Importing from a link rather than a file is limited to paid plans.',
+    a: 'Yes, within its free plan: 60 minutes of source video a month, exports up to 1080p with a watermark, no editing, and clips must be exported within 3 days.',
+  },
+  {
+    q: 'Does the Opus Clip free trial remove the watermark?',
+    a: 'No. The 7-day Pro trial needs no credit card, but its exports carry the watermark. Only a paid plan removes it.',
   },
   {
     q: 'What is the catch with the free self-hosted route?',
     a: 'Hardware and time, not a hidden fee. It needs Docker and realistically 8GB of RAM, and an 8-minute video takes 5 to 8 minutes to process on CPU (about 50 seconds on an NVIDIA GPU). There is no cap, no watermark and no subscription.',
   },
-])}
-
-${sources([
-  `Opus Clip free-tier and watermark terms checked 2026-08-04 on the vendor's public pricing page.`,
-  `OpenShorts licence carve-out (MIT core, commercial <code>cloud/</code> directory) in the project source at <a href="${SITE.repo}" rel="noopener">github.com/mutonby/openshorts</a>.`,
-])}
-`,
-  faq: [
-    {
-      q: 'Is there a free alternative to Opus Clip without a watermark?',
-      a: 'Yes: OpenShorts self-hosted is MIT-licensed, runs with Docker on your own machine, and has no watermark and no cap.',
-    },
-    {
-      q: 'How much free usage does OpenShorts give hosted?',
-      a: '20 minutes of source video a month with a watermark and no credit card; paid plans from $12/month remove the watermark.',
-    },
-  ],
-})
+]
 
 const opusAi = () => ({
   path: '/opus-ai',
-  title: 'Opus AI (opus.pro): What It Is and Costs | OpenShorts',
+  title: 'Opus AI (opus.pro): What It Is and Pricing | OpenShorts',
   description:
-    'Opus AI is the clipping tool that lives at opus.pro, better known as Opus Clip. What the name refers to, what it does, what it costs, and the open source route.',
-  h1: 'Opus AI: the tool behind opus.pro, explained',
+    'Opus AI is how most people search for OpusClip, the clipper at opus.pro, whose maker also runs Agent Opus. What it does, what it costs, the open source route.',
+  h1: 'Opus AI: what the tool at opus.pro is, and what it costs',
   breadcrumb: [
     { name: 'Alternatives', path: '/alternatives' },
     { name: 'Opus Clip', path: '/alternatives/opus-clip' },
     { name: 'Opus AI' },
   ],
   published: '2026-09-17',
-  updated: '2026-09-17',
+  updated: OPUS.checked,
   tldr: [
-    'Opus AI is not a separate product: it is the same company and pipeline most people know as Opus Clip, which runs at opus.pro. If a tool called Opus AI is clipping your long videos, it is that one.',
-    `It costs ${esc(OPUS.entryPrice)} at entry, billed in credits per minute of source video rather than per clip, with a 60-minute-a-month free tier that watermarks and caps exports at 720p.`,
-    'OpenShorts does the same core job — moment detection, 9:16 reframing, word-level subtitles — and differs on two axes that matter: it is MIT-licensed and self-hostable, and it prices in flat minutes rather than per-minute credits.',
+    '"Opus AI" is how a large share of people search for OpusClip, the AI clipping tool at opus.pro made by OpusClip Inc. The same company also makes Agent Opus, a separate AI video agent, and the paid credits work in both.',
+    `OpusClip costs $15/month at entry, billed in credits per minute of source video rather than per clip. Its free plan gives 60 credits a month with watermarked exports, and there is a 7-day Pro trial.`,
+    'OpenShorts does the same core job (moment detection, 9:16 reframing, word-level subtitles) and differs on two axes that matter: it is MIT-licensed and self-hostable, and it prices in flat minutes rather than per-minute credits.',
   ],
   body: `
 <h2>Is Opus AI the same thing as Opus Clip?</h2>
-<p>Yes. The product is marketed as Opus Clip and served from <code>opus.pro</code>,
-and "Opus AI" is how a large share of its traffic searches for it. There is no
-second, separate Opus AI clipper; if you see the name in a listicle, it is this
-tool under a shorter spelling.</p>
-<div class="note"><span class="label">Two names, one of them shared</span><p>"Opus" is
-also the name of an Anthropic language model. That is a different thing entirely
-and has nothing to do with video clipping. This page is about the video tool at
+<p>Yes, in almost every search. The clipping product is OpusClip, the company is
+OpusClip Inc., and the site is <code>opus.pro</code>; "Opus AI" is the shorter
+name people type. The same company runs a second product under the Opus name,
+<strong>Agent Opus</strong> (agent.opus.pro), an AI video agent with its own
+Free, Pro and Max plans. Paid credits work in both, so if you pay for one you can
+spend in the other.</p>
+<div class="note"><span class="label">A third Opus</span><p>"Opus" is also the
+name of an Anthropic language model. That is a different thing entirely and has
+nothing to do with video clipping. This page is about the video tools at
 opus.pro.</p></div>
 
-<h2>What Opus AI does</h2>
+<h2>What OpusClip does</h2>
 <p>It takes a long video, finds the segments worth keeping, cuts them, reframes
-them vertically and burns in captions with a large library of animated styles.
-The differentiators its users cite are the caption presets and the virality
-score, which is trained on the company's own data rather than on a
-general-purpose model. It is cloud only: there is no self-hosted edition and no
-source to read.</p>
+them and burns in animated captions. The features its users cite:</p>
+${li([
+  'ClipAnything, which picks moments from visual, audio and sentiment cues, so it works on footage with little dialogue, and takes a prompt for what to look for.',
+  'ReframeAnything (alpha), which tracks a subject and reframes to 9:16, 1:1 or 16:9.',
+  'A virality score from 0 to 99 built from hook, flow, value and trend, shown on paid plans only.',
+  'Animated captions in 20+ languages, AI B-roll, dubbing, a scheduler, and an API on Pro and Business.',
+])}
+<p>It is cloud only: there is no self-hosted edition and no source to read. It
+accepts sources up to 10 hours long.</p>
 
 <h2>What Opus AI costs</h2>
-<p class="checked">Checked ${esc(OPUS.checked)} on the vendor's public pricing page.</p>
-${li(OPUS.tiers.map(([n, d]) => `<strong>${esc(n)}</strong>: ${esc(d)}`))}
-<p>${esc(OPUS.gotcha)}</p>
+<p class="checked">Checked ${esc(OPUS.checked)} on the vendor's public pricing and help pages.</p>
+${opusTierTable()}
+<p>${esc(OPUS.gotcha)} The full breakdown, including the trial and how a credit
+is rounded, is on the <a href="/opus-clip-pricing">Opus Clip pricing page</a>.</p>
 
 <h2>Where OpenShorts differs</h2>
 ${li([
-  `OpenShorts is MIT-licensed and can be self-hosted with Docker, so the source video never leaves your machine. Opus AI is cloud only.`,
-  `OpenShorts adds AI voice dubbing into 30+ languages and an AI UGC generator with lip-synced actors; the Opus AI feature set is clipping and captioning.`,
-  `Opus AI has the larger caption-style library and a longer track record. If your clips live or die on animated caption design, that advantage is real and this page is not going to pretend otherwise.`,
-  `OpenShorts self-hosted has no meter of any kind; Opus AI bills credits per minute of source imported, and those credits expire 60 days after purchase.`,
+  'OpenShorts is MIT-licensed and can be self-hosted with Docker, so the source video never leaves your machine. Opus is cloud only.',
+  'OpenShorts self-hosted has no meter of any kind. Opus bills credits per minute of source imported, and monthly credits expire after 60 days.',
+  'OpenShorts Cloud starts at $12/month for 100 minutes with no watermark; the hosted free plan clips your first video free up to 60 minutes, then 20 minutes a month.',
+  'Opus has the larger caption-style library and a longer track record. If your clips live or die on animated caption design, that advantage is real.',
 ])}
 
 <h2>What does OpenShorts cost?</h2>
 ${pricingParagraph}
 
-${faqBlock([
+${faqBlock(OPUS_AI_FAQ)}
+
+${sources([
+  `OpusClip plans, features and limits checked ${esc(OPUS.checked)} on opus.pro, opus.pro/pricing and help.opus.pro; Agent Opus credits on the Agent Opus credits FAQ.`,
+  `OpenShorts pipeline in the project source at <a href="${SITE.repo}" rel="noopener">github.com/mutonby/openshorts</a>.`,
+])}
+`,
+  faq: OPUS_AI_FAQ,
+})
+
+const OPUS_AI_FAQ = [
   {
     q: 'Is Opus AI the same as Opus Clip?',
-    a: 'Yes. Opus Clip is the product name and opus.pro is the domain; "Opus AI" is a shortened spelling of the same tool, not a separate service.',
+    a: 'Yes. OpusClip is the product, OpusClip Inc. the company and opus.pro the site; "Opus AI" is the shorter name people search. The same company also makes Agent Opus, a separate AI video agent whose paid credits are shared with OpusClip.',
   },
   {
     q: 'Is Opus AI free?',
-    a: `There is a free tier: 60 source minutes a month, watermarked, 720p, and free-plan exports are deleted after three days. Paid plans start at ${OPUS.entryPrice}. OpenShorts self-hosted is free with no watermark and no cap, and OpenShorts Cloud gives 20 watermarked minutes a month free.`,
+    a: 'There is a free plan: 60 minutes of source video a month with watermarked exports, no editing, and a 3-day window to export. There is also a 7-day Pro trial with no credit card. Paid plans start at $15/month. OpenShorts self-hosted is free with no watermark and no cap.',
+  },
+  {
+    q: 'What is Agent Opus?',
+    a: 'An AI video agent from the makers of OpusClip, at agent.opus.pro, with its own Free, Pro and Max plans. Free comes with a one-time grant of 60 credits; Pro includes 300 credits a month and Max 1,500. Paid credits can be spent in either product.',
   },
   {
     q: 'Does Opus AI have an open source alternative?',
-    a: 'Yes. OpenShorts is MIT-licensed, self-hostable with Docker, and covers the same core job: AI moment detection, face-tracked 9:16 reframing and word-level burned-in subtitles. It also adds dubbing into 30+ languages and AI UGC video, which Opus AI does not have.',
+    a: 'Yes. OpenShorts is MIT-licensed, self-hostable with Docker, and covers the same core job: AI moment detection, face-tracked 9:16 reframing and word-level burned-in subtitles, plus dubbing into 30+ languages.',
   },
-])}
-`,
-  faq: [
-    {
-      q: 'Is Opus AI the same as Opus Clip?',
-      a: 'Yes: Opus Clip is the product name, opus.pro the domain, and "Opus AI" the shortened spelling of the same tool.',
-    },
-    {
-      q: 'Is Opus AI free?',
-      a: `Its free tier is 60 source minutes a month, watermarked and 720p; paid plans start at ${OPUS.entryPrice}. OpenShorts self-hosted is free with no watermark, and OpenShorts Cloud gives 20 watermarked minutes a month.`,
-    },
-  ],
-})
+]
 
 const opusPro = () => ({
   path: '/opus-pro',
-  title: 'Opus Pro Plan: What It Costs and Who Needs It | OpenShorts',
+  title: 'Opus Pro Plan: $29 or $14.50/mo, Explained | OpenShorts',
   description:
-    "Opus Pro is Opus Clip's mid tier: 300 source minutes a month, 1080p exports, auto-posting and speaker detection. What it buys, and when it is the wrong plan.",
+    'Opus Pro is the $29/month OpusClip plan ($14.50 billed yearly): 300 credits, 2 seats, B-roll, API access. Plus what opus.pro is, and when Pro is the wrong buy.',
   h1: 'Opus Pro: the plan, the price, and when it is the wrong buy',
   breadcrumb: [
     { name: 'Alternatives', path: '/alternatives' },
@@ -1566,77 +1636,188 @@ const opusPro = () => ({
     { name: 'Opus Pro' },
   ],
   published: '2026-09-17',
-  updated: '2026-09-17',
+  updated: OPUS.checked,
   tldr: [
-    'Opus Pro is the $29/month tier of Opus Clip: 300 minutes of source video a month, 1080p exports, auto-posting, speaker detection and a brand kit.',
-    'The tier it sits above costs $15/month for 150 minutes at 720p, so Pro is roughly double the price for double the minutes and a resolution step. Whether that is worth it depends entirely on how long your sources are, because the credit is charged per minute imported.',
+    '"Opus Pro" means two things in searches: opus.pro, the website of the OpusClip clipping tool, and Pro, its mid plan. This page covers both.',
+    'The Pro plan costs $29/month, or $14.50/month billed yearly ($174 a year), for 300 credits a month (one per minute of source video), 2 seats, AI B-roll, Premiere and DaVinci export and limited API access. Starter is $15/month for 150 credits and is sold monthly only.',
     `OpenShorts self-hosted does the same job for $0 with no cap, and the flat hosted plan is $${EDITIONS.cloud.lowPrice}/month for 100 minutes with no watermark.`,
   ],
   body: `
-<h2>What Opus Pro includes</h2>
-<table>
-<thead><tr><th>Plan</th><th>What it includes</th></tr></thead>
-<tbody>${OPUS.tiers
-    .filter(([n]) => n === 'Starter' || n === 'Pro')
-    .map(([n, d]) => `<tr><td class="os">${esc(n)}</td><td>${esc(d)}</td></tr>`)
-    .join('')}</tbody>
-</table>
-<p class="checked">Checked ${esc(OPUS.checked)} on the vendor's public pricing page.</p>
-<p>The differences between Starter and Pro that people actually notice are
-1080p instead of 720p, auto-posting straight to the connected accounts, speaker
-detection and the brand kit. The minutes are the headline, and the resolution
-step is the one that shows up on a phone screen.</p>
+<h2>What is opus.pro?</h2>
+<p><code>opus.pro</code> is the website of OpusClip, the AI clipping tool made by
+OpusClip Inc. Typing "opus pro" lands most people on the product rather than on
+the plan, so it is worth saying plainly: the site and the clipper are the same
+thing, and Pro is also the name of its mid plan. For what the product does, see
+<a href="/opus-ai">Opus AI explained</a>.</p>
 
-<h2>Who the Pro tier is priced for</h2>
+<h2>What the Opus Pro plan includes</h2>
+${opusTierTable((n) => n === 'Starter' || n === 'Pro')}
+<p class="checked">Checked ${esc(OPUS.checked)} on the vendor's public pricing page.</p>
+<p>What changes from Starter to Pro: twice the credits, 2 seats (up to 4 with
+extra packs), 100 GB of storage, AI B-roll, export to Premiere and DaVinci, more
+aspect ratios and limited API access. The pricing quirk is the yearly discount:
+Starter is monthly only, so Pro billed yearly, at $14.50/month, is cheaper than
+Starter and gives twice the credits. It only stops being the better deal if you
+cannot commit to a year.</p>
+
+<h2>Who the Pro plan is priced for</h2>
 <p>Opus bills one credit per minute of video imported, not per clip exported.
 A weekly 60-minute show is roughly 260 source minutes a month, which fits inside
 Pro and does not fit inside Starter. A creator posting one 20-minute video a week
-uses about 90 minutes and is paying $14/month more than the job needs. The plan
-is priced for volume of input, so the honest question is how many minutes you
-actually import, not how many clips you publish.</p>
+uses about 90 minutes, which Starter covers. The plan is priced for volume of
+input, so the honest question is how many minutes you import, not how many clips
+you publish.</p>
 
 <h2>What OpenShorts costs for the same job</h2>
 ${pricingParagraph}
-<p>Two differences are worth stating plainly rather than leaving to a table.
-Self-hosted has no meter at all, so a 90-minute interview and a 9-minute one cost
-the same: nothing. Hosted is a flat minute balance with no per-call or per-clip
-charge, and API and MCP usage draws from the same balance as the dashboard.</p>
+<p>Self-hosted has no meter at all, so a 90-minute interview and a 9-minute one
+cost the same: nothing. Hosted is a flat minute balance with no per-call or
+per-clip charge, and API and MCP usage draws from the same balance as the
+dashboard.</p>
 <p>What you give up: the caption-style library. Opus Clip's presets are more
 numerous and more polished than ours, and if animated captions are the product
 you are selling, that is a reason to stay. What you gain: the code is MIT and
-auditable, the source video can stay on your machine, and dubbing into 30+
-languages is in the same pipeline rather than a second tool.</p>
+auditable, and the source video can stay on your machine.</p>
 
-${faqBlock([
+${faqBlock(OPUS_PRO_FAQ)}
+
+${sources([
+  `OpusClip plans checked ${esc(OPUS.checked)} on opus.pro/pricing.`,
+  `OpenShorts pricing and pipeline in the project source at <a href="${SITE.repo}" rel="noopener">github.com/mutonby/openshorts</a>.`,
+])}
+`,
+  faq: OPUS_PRO_FAQ,
+})
+
+const OPUS_PRO_FAQ = [
   {
     q: 'How much does Opus Pro cost?',
-    a: `$29/month for 300 minutes of source video, 1080p exports, auto-posting, speaker detection and a brand kit, as published on the vendor's pricing page (checked ${OPUS.checked}).`,
+    a: '$29/month, or $14.50/month billed yearly ($174 a year), for 300 credits a month, 2 seats, 100 GB of storage, AI B-roll, Premiere and DaVinci export and limited API access. Checked October 2026.',
+  },
+  {
+    q: 'What is opus.pro?',
+    a: 'The website of OpusClip, the AI video clipping tool made by OpusClip Inc. "Opus Pro" is also the name of its mid plan.',
   },
   {
     q: 'Do I need Opus Pro or is Starter enough?',
-    a: 'Starter is $15/month for 150 source minutes at 720p. If the minutes you import in a month exceed 150, or you need 1080p exports and auto-posting, the Pro tier is the one priced for you. The meter counts minutes of source video, not clips produced.',
+    a: 'Starter is $15/month, monthly only, for 150 credits (minutes of source video). If you import more than 150 minutes a month, or want B-roll, seats or the API, Pro is the plan priced for you, and billed yearly it is cheaper than Starter.',
   },
   {
     q: 'Is there a cheaper way to do what Opus Pro does?',
-    a: 'Yes, two: OpenShorts self-hosted is free under MIT with no cap (you supply your own machine and a free-tier Gemini key), and OpenShorts Cloud is $12/month for 100 minutes with no watermark, drawing API and MCP usage from the same balance.',
+    a: 'Yes, two: OpenShorts self-hosted is free under MIT with no cap (you supply your own machine and a free-tier Gemini key), and OpenShorts Cloud is $12/month for 100 minutes with no watermark, with API and MCP usage drawn from the same balance.',
   },
+]
+
+/* "vizard ai" is a brand query with more volume than any non-brand term in the
+ * category and almost no competition for it (KD 6, checked 2026-10-05). The
+ * comparison page answers "alternative to"; this one answers the question the
+ * searcher actually typed: what is it, what does it cost, is it free. */
+const vizardAi = () => {
+  const c = COMPETITORS.vizard
+  const faq = [
+    {
+      q: 'What is Vizard AI?',
+      a: 'Vizard (vizard.ai) is a browser-based AI video clipper. It transcribes a long video, picks candidate moments, reframes them and gives you a timeline editor to fix captions and clip boundaries before exporting. It also works as a video-to-text tool, and lately adds an AI agent and an AI Studio for generated video.',
+    },
+    ...c.extraFaq.filter((f) => f.q === 'Is Vizard AI free?'),
+    {
+      q: 'How much does Vizard AI cost?',
+      a: 'Creator is $29/month, or $14.50/month billed yearly, from 600 credits a month with 4K exports and no watermark. Business is $39/month, or $19.50/month billed yearly, with a shared workspace and team seats at $5/month each. One credit is one minute of uploaded video. Checked October 2026.',
+    },
+    {
+      q: 'Does Vizard AI have an API?',
+      a: 'Yes. The API is included in every paid plan and draws from the same credits as the web app, with videos up to 600 minutes and 10 GB. Above 10,000 minutes a month it is a sales conversation.',
+    },
+    {
+      q: 'Is there an open source alternative to Vizard AI?',
+      a: 'OpenShorts: MIT-licensed, self-hostable with Docker, and free with no cap or watermark when you run it yourself. It does the clipping unattended (moment scoring, face-tracked 9:16 reframing, word-level subtitles) rather than in a timeline. Hosted, it starts at $12/month.',
+    },
+  ]
+  return {
+    path: '/vizard-ai',
+    title: 'Vizard AI: What It Is, Pricing and Free Plan | OpenShorts',
+    description:
+      'Vizard AI explained, October 2026: what the clipper does, the free plan (60 credits, 720p, watermark), Creator from $14.50/month, and an open source option.',
+    h1: 'Vizard AI: what it is, what it costs, and whether the free plan is enough',
+    breadcrumb: [
+      { name: 'Alternatives', path: '/alternatives' },
+      { name: 'Vizard', path: '/alternatives/vizard' },
+      { name: 'Vizard AI' },
+    ],
+    published: '2026-10-05',
+    updated: c.checked,
+    cta: {
+      label: 'Compare on your own video',
+      title: 'Clip the same video here',
+      body: 'Paste the link you tried in Vizard and compare the clips. First video free up to 60 minutes, no credit card.',
+      button: 'Get free clips',
+    },
+    tldr: [
+      'Vizard AI is the browser-based video clipper at vizard.ai: it transcribes a long video, finds the moments, reframes them and hands you a timeline to fix captions and boundaries before export.',
+      `Its free plan gives 60 credits a month (one per minute uploaded), uploads up to 60 minutes and 720p exports of up to 10 minutes with a watermark. Paid plans start at $29/month, or $14.50/month billed yearly, with 4K and no watermark.`,
+      'OpenShorts is the open source alternative: free and unlimited when self-hosted, hosted from $12/month, and built to clip unattended rather than in a timeline.',
+    ],
+    body: `
+<h2>What is Vizard AI?</h2>
+<p>${esc(c.brandBlurb)}</p>
+<p>The features it leads with: AI clips, auto
+reframe, animated subtitles with emoji and keyword highlighting, subtitle
+translation, AI B-roll, post suggestions, and publishing or scheduling to
+connected social accounts. Paid plans take uploads of up to 600 minutes and
+30 GB, at up to 4K.</p>
+
+<h2>How much does Vizard AI cost?</h2>
+<p class="checked">Checked ${esc(c.checked)} on vizard.ai/pricing. Vendors change plans without notice; verify before you buy.</p>
+<table>
+<thead><tr><th>Plan</th><th>What it includes</th></tr></thead>
+<tbody>${c.tiers.map(([n, d]) => `<tr><td class="os">${esc(n)}</td><td>${esc(d)}</td></tr>`).join('')}</tbody>
+</table>
+<p>One credit is one minute of video uploaded, whatever comes out of it. The
+yearly toggle halves the price, so the $29 Creator plan is $14.50/month on a
+yearly commitment.</p>
+
+<h2>Is the free plan enough?</h2>
+<p>For trying it, yes. For publishing, it is tight: 60 minutes of source a month
+is one podcast episode, exports stop at 720p and 10 minutes, every export
+carries the watermark, and files are kept for 3 days. The transcript downloads
+as TXT only on the free plan; SRT subtitles need a paid plan. If what you want is
+the transcript, the <a href="/vizard-ai-video-to-text">Vizard AI video to text
+comparison</a> covers that case on its own.</p>
+
+<h2>Vizard AI vs OpenShorts</h2>
+<table>
+<thead><tr><th></th><th>Vizard AI</th><th>OpenShorts</th></tr></thead>
+<tbody>
+<tr><td>Free plan</td><td>60 credits/month, 720p, watermark, exports up to 10 min</td><td class="os">First video free up to 60 min, then 20 min/month (watermarked); self-hosted unlimited, no watermark</td></tr>
+<tr><td>Entry paid plan</td><td>$29/month, or $14.50/month yearly</td><td class="os">$12/month for 100 minutes, monthly</td></tr>
+<tr><td>Workflow</td><td>AI pass, then you edit in a timeline</td><td class="os">Unattended pipeline, with an editor for the clips you want to touch</td></tr>
+<tr><td>Open source, self-hostable</td><td>No</td><td class="os">Yes, MIT, Docker</td></tr>
+<tr><td>Layouts beyond a face-tracked crop</td><td>Auto reframe</td><td class="os">Two speakers stacked, screencast over presenter, webcam inset enlarged</td></tr>
+<tr><td>API</td><td>Included in paid plans, same credits</td><td class="os">Included, same minute balance; MCP server for Claude and ChatGPT</td></tr>
+</tbody>
+</table>
+<p>Where Vizard wins: if you plan to hand-correct every clip in a timeline, its
+editor is the better place to do it. Where OpenShorts wins: volume, automation,
+self-hosting, and multi-person or screen-recorded footage. The full side-by-side
+is on the <a href="/alternatives/vizard">Vizard alternative page</a>.</p>
+
+<h2>What does OpenShorts cost?</h2>
+${pricingParagraph}
+
+${faqBlock(faq)}
+
+${sources([
+  `Vizard plans, free-plan limits and transcript formats checked ${esc(c.checked)} on vizard.ai/pricing and vizard.ai/tools/video-to-text; API limits on docs.vizard.ai.`,
+  `OpenShorts pipeline in the project source at <a href="${SITE.repo}" rel="noopener">github.com/mutonby/openshorts</a>.`,
 ])}
 `,
-  faq: [
-    {
-      q: 'How much does Opus Pro cost?',
-      a: '$29/month for 300 source minutes, 1080p exports, auto-posting, speaker detection and a brand kit.',
-    },
-    {
-      q: 'Is there a cheaper alternative to the Opus Pro plan?',
-      a: 'OpenShorts self-hosted is free under MIT with no cap; OpenShorts Cloud is $12/month for 100 minutes with no watermark.',
-    },
-  ],
-})
+    faq,
+  }
+}
 
 /* "vizard ai video to text" is its own intent: the searcher wants a transcript,
  * not clips, and lands on clipper pages that never answer it. The honest answer
- * is that both tools produce the transcript — OpenShorts with word-level timing
+ * is that both tools produce the transcript: OpenShorts with word-level timing
  * from faster-whisper, which is what the burned-in captions are cut from. */
 const videoToText = () => {
   const c = COMPETITORS.vizard
@@ -1652,9 +1833,9 @@ const videoToText = () => {
       { name: 'Video to text' },
     ],
     published: '2026-09-17',
-    updated: '2026-09-17',
+    updated: c.checked,
     tldr: [
-      `Vizard's "video to text" is a transcript with timestamps, produced from the same pass that finds the clips and burns the captions. It is part of the entry plan, which starts at ${esc(c.entryPrice)}, and the free plan allows 120 upload minutes and 10 exports.`,
+      `Vizard's "video to text" is a transcript with timestamps from the same pass that finds the clips. Paste a YouTube link or upload a file; Vizard says it covers 180+ languages. The free plan downloads the transcript as TXT only; SRT needs a paid plan, from ${esc(c.entryPrice)}.`,
       'A transcript is a by-product of the transcription stage every clipper already runs, which is why no tool charges for it separately and why it is not worth choosing a tool over.',
       'OpenShorts transcribes with faster-whisper at word level and returns the transcript alongside the clips, subtitles included, free when self-hosted and from $12/month hosted.',
     ],
@@ -1680,8 +1861,11 @@ moments, which is why they are bundled rather than sold.</p>
 <p>Vizard runs the whole thing in the browser and treats the timeline as the
 product: it transcribes the upload, lets you edit the captions and the clip
 boundaries on a timeline, and exports both the clips and the text. Multi-language
-subtitles are one of its stronger features. Its entry plan starts at
-${esc(c.entryPrice)}, and the free plan allows 120 upload minutes and 10 exports.</p>
+subtitles and subtitle translation are among its stronger features, and its
+video-to-text tool says it transcribes 180+ languages (its API documentation
+lists 36 languages for clipping). The free plan gives 60 credits a month, uploads
+up to 60 minutes and the transcript as TXT only; the paid plans, from
+${esc(c.entryPrice)}, add SRT.</p>
 <p>${esc(c.gotcha)}</p>
 
 <h2>Doing the same thing with OpenShorts</h2>
@@ -1705,7 +1889,7 @@ machine, self-hosted OpenShorts is free and the transcript comes with the job.</
 ${faqBlock([
   {
     q: 'Does Vizard AI convert video to text?',
-    a: `Yes. It transcribes the video it processes and gives you the text with timestamps alongside the clips and subtitles. Its entry plan starts at ${c.entryPrice}, and the free plan covers 120 upload minutes and 10 exports.`,
+    a: `Yes. It transcribes the video and gives you the text alongside the clips and subtitles, from a YouTube link or an upload. The free plan (60 credits a month) downloads it as TXT; paid plans, from ${c.entryPrice}, add SRT.`,
   },
   {
     q: 'How do I get a free transcript from a video?',
@@ -1725,7 +1909,7 @@ ${sources([
     faq: [
       {
         q: 'Does Vizard AI convert video to text?',
-        a: `Yes, with timestamps, alongside the clips. Entry plans start at ${c.entryPrice}; the free plan allows 120 upload minutes and 10 exports.`,
+        a: `Yes, alongside the clips. The free plan gives 60 credits a month and a TXT transcript; paid plans, from ${c.entryPrice}, add SRT.`,
       },
       {
         q: 'Is there a free way to turn a video into text?',
@@ -1736,17 +1920,35 @@ ${sources([
 }
 
 /* Reviews intent for a competitor. Written as product facts plus the recurring
- * themes in public reviews — no invented quotes and no star rating, because a
+ * themes in public reviews: no invented quotes and no star rating, because a
  * rating we cannot verify is exactly the kind of thing this site refuses to
  * publish elsewhere. */
 const submagicReview = () => {
   const c = COMPETITORS.submagic
   const tierRows = c.tiers.map(([n, d]) => `<tr><td class="os">${esc(n)}</td><td>${esc(d)}</td></tr>`).join('')
+  const faq = [
+    {
+      q: 'Is Submagic worth it?',
+      a: 'For captions, yes: it is the strongest caption styler in this category, with B-roll, zooms and silence removal around it. For clipping long videos it is a newer feature (Magic Clips) inside a tool metered per video, with each video capped at 2, 5 or 30 minutes depending on the plan, so check your source length against the plan before you buy.',
+    },
+    {
+      q: 'Can Submagic clip long videos?',
+      a: 'Yes, with Magic Clips: paste a YouTube link or upload a long video and it returns short clips. Its pricing page does not publish a separate Magic Clips allowance, while every plan caps the length of each video (2 minutes on Starter, 5 on Pro, 30 on Business).',
+    },
+    {
+      q: 'Does Submagic have a free plan?',
+      a: 'No. It offers a trial with no credit card, then plans from $12/month billed yearly ($19 month to month). OpenShorts has a free plan (first video up to 60 minutes, then 20 minutes a month) and is free with no cap when self-hosted.',
+    },
+    {
+      q: 'What is a free alternative to Submagic?',
+      a: 'OpenShorts, self-hosted: MIT-licensed, free, no watermark and no cap, with moment detection, 9:16 reframing and word-level burned-in captions in the same pipeline. Its caption presets are plainer than Submagic\'s; that is the honest trade.',
+    },
+  ]
   return {
     path: '/submagic-reviews',
-    title: 'Submagic Review: Captions, Price and the Gap | OpenShorts',
+    title: 'Submagic Review 2026: Captions, Magic Clips | OpenShorts',
     description:
-      'An honest Submagic review: best-in-class caption styling, no moment detection, metered per video. What the reviews praise and what covers the gap.',
+      'An honest Submagic review, October 2026: best-in-class captions, Magic Clips for long videos, no free plan, and every plan metered per video with a length cap.',
     h1: 'Submagic review: the captions are the product, and the catch',
     breadcrumb: [
       { name: 'Alternatives', path: '/alternatives' },
@@ -1754,33 +1956,32 @@ const submagicReview = () => {
       { name: 'Review' },
     ],
     published: '2026-09-17',
-    updated: '2026-09-17',
+    updated: c.checked,
     tldr: [
       'The recurring theme across public reviews is the same one the product page leads with: the caption styling is the best in this category, and the presets are why people stay.',
-      'The second recurring theme is the limitation. Submagic does not find moments for you: you upload a clip you already cut and it styles the text. Going from a 60-minute podcast to finished shorts needs a clipper in front of it, which is two subscriptions.',
-      'OpenShorts covers both halves: moment detection, 9:16 reframing and word-level captions in one pipeline, free when self-hosted and from $12/month hosted. Its caption designs are plainer than Submagic\'s, and that is the real trade.',
+      'Submagic now also clips long videos with Magic Clips. The catch is the meter: every plan counts videos and caps each one\'s length (2, 5 or 30 minutes), and there is no free plan, only a trial.',
+      'OpenShorts is built the other way round, clipping-first: moment detection, 9:16 reframing with two-speaker and screencast layouts, and word-level captions, free when self-hosted and from $12/month hosted. Its caption designs are plainer than Submagic\'s, and that is the real trade.',
     ],
     body: `
 <h2>What Submagic is for</h2>
-<p>Submagic styles captions. You bring a clip you have already chosen and cut,
-it transcribes or takes your transcript, and it burns in animated, well-designed
-captions with emoji and keyword highlighting. That is a narrower job than the
-clippers it gets compared against, and it does that narrower job better than they
-do.</p>
+<p>Submagic started as a caption styler and is still built around captions. You
+bring a video, it transcribes it and burns in animated, well-designed captions
+with emoji and keyword highlighting, and around that it adds B-roll, auto zooms,
+hook titles and silence and bad-take removal. Since then it has added
+<strong>Magic Clips</strong>, which takes a long video or a YouTube link and
+returns short clips, so it is no longer only the second half of a clipping
+workflow.</p>
 
 <h2>What the reviews consistently praise</h2>
 <p>The caption library and the speed on short inputs come up in almost every
-public review. That is not a coincidence: the product is not doing moment
-detection, scene analysis or reframing, so all of its engineering sits in front
-of the one thing it sells. If caption design is the reason you are shopping, the
+public review. If caption design is the reason you are shopping, the
 recommendation is straightforward and it is not ours.</p>
 
-<h2>What it does not do</h2>
+<h2>Where it is weaker</h2>
 <p>${esc(c.gotcha)}</p>
-<p>Concretely: no moment detection, no scene-boundary awareness, no 9:16
-reframing with subject tracking, and no source-video privacy story because it is
-a cloud service. It also cannot be self-hosted, so a per-video meter is the only
-way to buy it.</p>
+<p>The clipping side is younger than the captions. Submagic does not publish how
+Magic Clips picks moments or how it reframes multi-person footage, and it cannot
+be self-hosted, so a per-video meter is the only way to buy it.</p>
 
 <h2>What it costs</h2>
 <p class="checked">Checked ${esc(c.checked)} on the vendor's public pricing page. Vendors change tiers without notice.</p>
@@ -1788,52 +1989,30 @@ way to buy it.</p>
 <thead><tr><th>Plan</th><th>What it includes</th></tr></thead>
 <tbody>${tierRows}</tbody>
 </table>
-<p>Every tier is metered in videos per month, which is the pricing shape that
-punishes a podcast: you pay per finished video rather than per source minute, so
-the cost scales with how much you publish.</p>
+<p>Every tier is metered in videos per month with a cap on each video's length.
+For a podcast that is the number to check first: on the self-serve plans only
+Business allows a 30-minute video.</p>
 
 <h2>The honest summary</h2>
-<p>Submagic is the right buy if you already cut your own clips and want the
-captions done well. It is the wrong buy if you are starting from long-form video,
-because you would be paying twice: once for the clipper that finds the moments
-and once for the captions. OpenShorts does both halves in one pipeline, and where
-it loses is exactly the axis Submagic wins on.</p>
+<p>Submagic is the right buy if captions are your product and your videos are
+short. If you are starting from long recordings, compare what Magic Clips does
+with your footage against a clipping-first tool before committing to a yearly
+plan. OpenShorts does the clipping in depth and loses on exactly the axis
+Submagic wins on: caption design.</p>
 <div class="note"><span class="label">On star ratings</span><p>We do not publish
 an aggregate score for a competitor. The numbers on the software directories move
 monthly and we would be quoting a snapshot as if it were a fact. Check them at the
 source if a rating is what you want; the product description above does not
 depend on one.</p></div>
 
-${faqBlock([
-  {
-    q: 'Is Submagic worth it?',
-    a: `It is worth it for one job: styling captions on clips you have already cut, and it does that better than the general-purpose clippers. It does not find moments or reframe video, so if you are starting from a long recording you need another tool in front of it — which is a second subscription.`,
-  },
-  {
-    q: 'What are the most common complaints about Submagic?',
-    a: 'The recurring one is scope rather than quality: users arrive expecting a clipper and find a caption editor, then have to add a second tool to get from a long video to short clips. The per-video metering on every tier is the second.',
-  },
-  {
-    q: 'What is a free alternative to Submagic?',
-    a: 'OpenShorts, self-hosted: MIT-licensed, free, no watermark and no cap, with moment detection, 9:16 reframing and word-level burned-in captions in the same pipeline. Its caption presets are plainer than Submagic\'s — that is the honest trade.',
-  },
-])}
+${faqBlock(faq)}
 
 ${sources([
-  `Submagic plans and metering checked ${esc(c.checked)} on the vendor's public pricing page.`,
+  `Submagic plans and limits checked ${esc(c.checked)} on submagic.co/pricing; Magic Clips on submagic.co/features/magic-clips.`,
   `OpenShorts pipeline stages in the project source at <a href="${SITE.repo}" rel="noopener">github.com/mutonby/openshorts</a>.`,
 ])}
 `,
-    faq: [
-      {
-        q: 'Is Submagic worth it?',
-        a: 'For caption styling on clips you already cut, yes — it is the strongest in the category. For going from a long video to shorts it is half a pipeline.',
-      },
-      {
-        q: 'What is a free alternative to Submagic?',
-        a: 'OpenShorts self-hosted: free under MIT, no watermark, no cap, with moment detection and captions in one pipeline. Caption presets are plainer than Submagic\'s.',
-      },
-    ],
+    faq,
   }
 }
 
@@ -1844,7 +2023,7 @@ const COMPARISON_INDEX = [
   {
     path: '/alternatives/opus-clip',
     title: 'Opus Clip, comparado',
-    blurb: 'Créditos por minuto de vídeo de origen, 720p frente a 1080p y dónde gana cada uno.',
+    blurb: 'Créditos por minuto de vídeo de origen, prueba de 7 días y dónde gana cada uno.',
   },
   {
     path: '/opus-clip-pricing',
@@ -1872,6 +2051,11 @@ const COMPARISON_INDEX = [
     blurb: 'Editor en línea de tiempo tras el paso de IA, y a quién le hace falta.',
   },
   {
+    path: '/vizard-ai',
+    title: 'Vizard AI: qué es y cuánto cuesta',
+    blurb: 'El plan gratuito (60 créditos, 720p, marca de agua), los planes de pago y la API.',
+  },
+  {
     path: '/vizard-ai-video-to-text',
     title: 'Vizard AI: vídeo a texto',
     blurb: 'Transcripción, subtítulos y clips: qué es cada cosa y cuánto cuesta.',
@@ -1884,12 +2068,27 @@ const COMPARISON_INDEX = [
   {
     path: '/alternatives/submagic',
     title: 'Submagic, comparado',
-    blurb: 'Solo subtítulos: no sustituye a un clipper, lo complementa.',
+    blurb: 'Subtítulos primero; ahora también recorta vídeos largos con Magic Clips.',
   },
   {
     path: '/submagic-reviews',
     title: 'Análisis de Submagic',
-    blurb: 'Lo que destacan los análisis públicos y el hueco que deja.',
+    blurb: 'Subtítulos de primera, Magic Clips y un medidor por vídeo con límite de duración.',
+  },
+  {
+    path: '/alternatives/vidyo-ai',
+    title: 'Vidyo.ai, ahora Quso',
+    blurb: 'Qué cambió con el cambio de nombre, sus planes por créditos y la alternativa abierta.',
+  },
+  {
+    path: '/alternatives/2short',
+    title: '2short AI, comparado',
+    blurb: 'El más barato por hora, sin marca de agua en el gratuito, pero solo desde enlaces.',
+  },
+  {
+    path: '/alternatives/sendshort',
+    title: 'SendShort, comparado',
+    blurb: 'Suite de vídeo corto: el recorte de vídeos largos empieza en el plan de $29.',
   },
 ]
 
@@ -1908,15 +2107,15 @@ const alternativasIndex = () => {
     lang: 'es',
     title: 'Alternativas a Opus Clip, Vizard y Submagic | OpenShorts',
     description:
-      'Comparativas de OpenShorts frente a Opus Clip, Vizard, Klap y Submagic: precios reales, qué incluye el plan gratuito y en qué gana cada herramienta.',
+      'OpenShorts frente a Opus Clip, Vizard, Klap, Submagic, Quso (Vidyo.ai), 2short y SendShort: precios de octubre de 2026, planes gratuitos y en qué gana cada una.',
     h1: 'Alternativas de código abierto a las herramientas de clipping',
     breadcrumb: [{ name: 'Alternativas' }],
     published: '2026-09-17',
-    updated: '2026-09-17',
+    updated: '2026-10-05',
     tldr: [
       'OpenShorts es la única herramienta de esta categoría con código abierto y autoalojable: MIT, se ejecuta con Docker en tu propia máquina y no lleva marca de agua ni límite de uso.',
-      `Los precios de entrada, comprobados el ${esc(OPUS.checked)}: OpenShorts $0 autoalojado o $12/mes alojado, Submagic ${esc(COMPETITORS.submagic.entryPrice)}, Opus Clip ${esc(OPUS.entryPrice)}, Vizard ${esc(COMPETITORS.vizard.entryPrice)} y Klap ${esc(COMPETITORS.klap.entryPrice)}.`,
-      'Las herramientas no son equivalentes: Submagic no detecta momentos, Klap no deja ajustar la salida y Vizard espera que edites en su línea de tiempo. Cada comparativa de abajo dice dónde gana de verdad.',
+      `Los planes de pago más baratos, comprobados el ${esc(OPUS.checked)}: 2short.ai $9,90/mes, OpenShorts Cloud $12/mes con pago mensual, Submagic $12, Klap $14 y Vizard $14,50 al mes con pago anual, y Opus Clip $15/mes. OpenShorts autoalojado cuesta $0.`,
+      'Las herramientas no son equivalentes: Submagic es un editor de subtítulos que añadió recortes, Quso y SendShort son suites donde recortar es una función más y Vizard espera que edites en su línea de tiempo. Cada comparativa de abajo dice dónde gana de verdad.',
     ],
     cta: {
       label: 'Pruébalo',
@@ -1938,10 +2137,7 @@ página, no por popularidad de la herramienta.</p>
 <thead><tr><th>Herramienta</th><th>Precio de entrada</th><th>Código abierto</th><th>Autoalojable</th></tr></thead>
 <tbody>
 <tr><td class="os">OpenShorts</td><td class="os">$0 autoalojado · $12/mes alojado</td><td class="yes">Sí, MIT</td><td class="yes">Sí, Docker</td></tr>
-<tr><td>Submagic</td><td>${esc(COMPETITORS.submagic.entryPrice)}</td><td>No</td><td>No</td></tr>
-<tr><td>Opus Clip</td><td>${esc(OPUS.entryPrice)}</td><td>No</td><td>No</td></tr>
-<tr><td>Vizard</td><td>${esc(COMPETITORS.vizard.entryPrice)}</td><td>No</td><td>No</td></tr>
-<tr><td>Klap</td><td>${esc(COMPETITORS.klap.entryPrice)}</td><td>No</td><td>No</td></tr>
+${ALTERNATIVES.map((slug) => `<tr><td>${esc(COMPETITORS[slug].seo?.breadcrumb || COMPETITORS[slug].name)}</td><td>${esc(COMPETITORS[slug].entryPrice)}</td><td>No</td><td>No</td></tr>`).join('')}
 </tbody>
 </table>
 
@@ -1958,7 +2154,7 @@ ${faqBlock([
   },
   {
     q: '¿Qué herramienta de clipping tiene código abierto?',
-    a: 'OpenShorts, con licencia MIT y el código completo en GitHub. Opus Clip, Klap, Vizard y Submagic son productos comerciales de código cerrado que solo funcionan en la nube.',
+    a: 'OpenShorts, con licencia MIT y el código completo en GitHub. Opus Clip, Klap, Vizard, Submagic, Quso (antes Vidyo.ai), 2short y SendShort son productos comerciales de código cerrado que solo funcionan en la nube.',
   },
   {
     q: '¿Merece la pena cambiar de herramienta?',
@@ -1973,7 +2169,7 @@ ${faqBlock([
       },
       {
         q: '¿Qué herramienta de clipping es de código abierto?',
-        a: 'OpenShorts (MIT). Opus Clip, Klap, Vizard y Submagic son de código cerrado y solo en la nube.',
+        a: 'OpenShorts (MIT). Opus Clip, Klap, Vizard, Submagic, Quso, 2short y SendShort son de código cerrado y solo en la nube.',
       },
     ],
   }
@@ -2208,6 +2404,7 @@ export function buildPages() {
     opusClipFree(),
     opusAi(),
     opusPro(),
+    vizardAi(),
     videoToText(),
     submagicReview(),
     alternativasIndex(),
@@ -2231,25 +2428,29 @@ export function buildPages() {
  * dump of every URL: the described link tells an engine what it will find. */
 export function relatedFor(page, all) {
   const blurb = {
-    '/alternatives': 'All four tools compared, with entry pricing.',
+    '/alternatives': 'Seven tools compared, with entry pricing and free plans.',
+    '/vizard-ai': 'What Vizard AI is, its free plan, and what it costs.',
+    '/alternatives/vidyo-ai': 'Vidyo.ai became Quso: what changed and what it costs.',
+    '/alternatives/2short': 'Cheapest per hour, unwatermarked free plan, links only.',
+    '/alternatives/sendshort': 'A short-video suite; long-video clipping from $29/month.',
     '/opus-clip-pricing': 'What a credit is, what the free tier includes, and every plan.',
     '/opus-clip-free-alternative': 'The two genuinely free routes, against a watermarked free tier.',
     '/opus-ai': 'What the name refers to, what it does and what it costs.',
     '/opus-pro': 'What the $29 tier buys, and when it is the wrong plan.',
     '/vizard-ai-video-to-text': 'Transcript, subtitles or clips: which one you are asking for.',
-    '/submagic-reviews': 'What the reviews praise, and the half of the job it does not do.',
+    '/submagic-reviews': 'What the reviews praise, Magic Clips, and the per-video cap.',
     '/alternativas': 'Todas las comparativas, en español, ordenadas por pregunta.',
-    '/alternatives/opus-clip': 'Per-minute credits, 720p vs 1080p, and where each one wins.',
+    '/alternatives/opus-clip': 'Per-minute credits, the 7-day trial, and where each one wins.',
     '/alternatives/klap': 'Fastest URL-to-clip path, and what you give up for it.',
     '/alternatives/vizard': 'Timeline editing after the AI pass, and who needs it.',
-    '/alternatives/submagic': 'Captions only, so it does not replace a clipper.',
+    '/alternatives/submagic': 'Captions-first, now with Magic Clips, metered per video.',
     '/free-ai-clip-generator': 'What free means when there is no metering code.',
     '/free-ai-clip-generator-no-watermark': 'Why free tools watermark, and the structural exception.',
     '/open-source-video-clipper': 'Self-hosting with Docker, and the MIT licence carve-out.',
     '/open-source-ai-video-generator': 'Text-to-video or clips from your footage: which you want.',
     '/how-openshorts-works': 'The full pipeline, stage by stage.',
     '/gta-5-clips': 'Stream VODs, webcam inset kept, no per-minute meter.',
-    '/podcast-to-shorts': 'Two-speaker episodes without cropping anyone out.',
+    '/podcast-to-shorts': 'Podcast clips with both speakers kept in frame.',
     '/youtube-to-shorts-converter': 'Paste a link, get 9:16 clips with subtitles.',
     '/mcp': 'Drive the whole pipeline from Claude, ChatGPT or n8n.',
     '/automate-shorts-api': 'One POST in, one signed webhook out, no polling.',
