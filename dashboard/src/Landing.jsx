@@ -14,6 +14,35 @@ const METER_TICKS = Array.from({ length: 64 }, (_, i) => {
 
 const APPARATUS_CALLOUTS = ['RATIO · 9:16', 'CLIPS · 3–15', 'DUB · 30+ LANGS', 'SUBS · WORD-LEVEL'];
 
+// Real clips OpenShorts made from Creative Commons (CC BY) sources. `video` is
+// the original and the clip side by side, in sync; `vertical` is the clip on
+// its own for the hero. The credit is what the licence asks for, so it stays
+// next to the video that uses it.
+const DEMOS = [
+  {
+    id: 'split',
+    tab: 'two speakers',
+    video: '/demo/case-split.mp4',
+    poster: '/screens/case-split.webp',
+    vertical: '/demo/split-vertical.mp4',
+    posterV: '/screens/split-vertical.webp',
+    credit: 'Turn the Tables with Dan and Shoshana Jordan',
+    creditBy: 'Heritage of Faith',
+    creditUrl: 'https://www.youtube.com/watch?v=-KbQj_vboOU',
+  },
+  {
+    id: 'talk',
+    tab: 'face tracking',
+    video: '/demo/case-talk.mp4',
+    poster: '/screens/case-talk.webp',
+    vertical: '/demo/talk-vertical.mp4',
+    posterV: '/screens/talk-vertical.webp',
+    credit: 'Mark Bush on How to Overcome Adversity',
+    creditBy: 'Foundation for Economic Education',
+    creditUrl: 'https://www.youtube.com/watch?v=aqFhllJJzoQ',
+  },
+];
+
 const SectionHeader = ({ eyebrow, title, children }) => (
   <div className="mb-12">
     <p className="eyebrow mb-3">{eyebrow}</p>
@@ -77,6 +106,8 @@ export default function Landing({ onLaunchApp }) {
   const { billingEnabled } = useAuth();
   const [openFaq, setOpenFaq] = React.useState(null);
   const [heroUrl, setHeroUrl] = React.useState('');
+  const [heroDemo, setHeroDemo] = React.useState(0);
+  const [cropDemo, setCropDemo] = React.useState(0);
 
   // Hand the pasted link to the app: MediaInput picks it up on mount, so the
   // user lands with their own video ready instead of on a pricing page.
@@ -168,7 +199,7 @@ export default function Landing({ onLaunchApp }) {
   const faqs = [
     {
       question: "Is OpenShorts really free? What's the catch?",
-      answer: "There is no catch, but there are two different things on offer. (1) Self-hosted is 100% free and open source: you run it with Docker on your own machine, bring your own API keys, and there are no watermarks, no usage limits and no subscription. What it costs you is hardware and time. On a typical CPU an 8-minute video takes 5 to 8 minutes to process, and you need your own Google Gemini key (required, free tier is 1,500 requests/day), plus ElevenLabs for dubbing and fal.ai for AI Shorts if you want those. (2) Hosted at openshorts.app is the same software with the running costs covered: our NVIDIA GPU clips that same 8-minute video in about 50 seconds, the Gemini key is included so there is nothing to create or paste, auto-posting to TikTok, Instagram and YouTube is already wired up, and your clips are stored and re-openable from any browser. It has a free plan (20 minutes a month, watermark, no credit card) and paid plans from $12/mo for 100 minutes without watermark. So: free if you are happy to run it yourself, paid if you would rather it just ran fast. Both are far cheaper than Opus Clip ($15-228/month) or Kapwing ($24-79/month)."
+      answer: "There is no catch, but there are two different things on offer. (1) Self-hosted is 100% free and open source: you run it with Docker on your own machine, bring your own API keys, and there are no watermarks, no usage limits and no subscription. What it costs you is hardware and time. On a typical CPU an 8-minute video takes 5 to 8 minutes to process, and you need your own Google Gemini key (required, free tier is 1,500 requests/day), plus ElevenLabs for dubbing and fal.ai for AI Shorts if you want those. (2) Hosted at openshorts.app is the same software with the running costs covered: our NVIDIA GPU clips that same 8-minute video in about 50 seconds, the Gemini key is included so there is nothing to create or paste, auto-posting to TikTok, Instagram and YouTube is already wired up, and your clips are stored and re-openable from any browser. Its free plan clips your first video whole up to 60 minutes, then 20 minutes a month, with a watermark and no credit card; paid plans start at $12/mo for 100 minutes without watermark. So: free if you are happy to run it yourself, paid if you would rather it just ran fast. For reference, Opus Clip starts at $15/month and bills a credit per minute of source video."
     },
     {
       question: "What is OpenShorts and how does it work?",
@@ -176,7 +207,7 @@ export default function Landing({ onLaunchApp }) {
     },
     {
       question: "How does OpenShorts compare to Opus Clip?",
-      answer: "OpenShorts is a free, self-hosted alternative to Opus Clip. Both offer AI viral moment detection and smart vertical cropping. Key differences: OpenShorts is completely free vs Opus Clip's $15-228/month pricing. OpenShorts runs on your infrastructure (full data privacy) vs cloud-only. OpenShorts uses Google Gemini 3.1 Flash-Lite for AI analysis vs Opus Clip's proprietary model. OpenShorts adds AI voice dubbing in 30+ languages, AI-generated video effects, and hook text overlays. The trade-off is that OpenShorts requires Docker self-hosting, while Opus Clip is a ready-to-use cloud service."
+      answer: "OpenShorts is an open source alternative to Opus Clip. Both offer AI viral moment detection and smart vertical cropping. Key differences: OpenShorts is free when self-hosted and $12/month hosted, against Opus Clip from $15/month billed per source minute. OpenShorts can run on your own infrastructure (full data privacy); Opus Clip is cloud-only. OpenShorts uses Google Gemini 3.1 Flash-Lite for AI analysis vs Opus Clip's proprietary model. OpenShorts adds two-speaker and screencast layouts, AI UGC videos with lip-synced actors, and an MCP server for Claude and ChatGPT. The honest trade-off: Opus Clip has the larger caption-style library."
     },
     {
       question: "How do I turn a long-form video into TikTok or Reels clips?",
@@ -266,22 +297,15 @@ export default function Landing({ onLaunchApp }) {
       <section className="hero-blueprint relative overflow-clip border-b border-rule pt-32 pb-20 px-6">
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto] gap-14 items-center">
           <div className="min-w-0">
-            <p className="eyebrow mb-6">00 · AI Clip Generator · Cloud or Self-Hosted</p>
+            <p className="eyebrow mb-6">00 · Free AI Clip Generator · Open Source</p>
 
             <h1 className="hero-h1 mb-6">
-              the free open source ai <em>clip generator</em>, built to clip what people actually watch.
+              long video in. <em>viral shorts</em> out.
             </h1>
 
             <p className="hero-description text-muted max-w-2xl mb-8 leading-relaxed lowercase">
-              turn long videos into viral 9:16 shorts, or generate ugc marketing videos with ai actors. online, in the cloud, zero setup.
-              also a clipping tool for ai agents: claude, chatgpt and n8n drive it over{' '}
-              <a href="/mcp" className="text-ink2 underline underline-offset-4 decoration-rule hover:text-ink hover:decoration-brass transition-colors">mcp</a>,
-              or run your channel on{' '}
-              <a href="/auto-clip" className="text-ink2 underline underline-offset-4 decoration-rule hover:text-ink hover:decoration-brass transition-colors">autopilot</a>{' '}
-              or with the{' '}
-              <a href="/n8n-youtube-shorts-automation" className="text-ink2 underline underline-offset-4 decoration-rule hover:text-ink hover:decoration-brass transition-colors">n8n workflow</a>.
-              just want it free? start with the{' '}
-              <a href="/free-ai-clip-generator" className="text-ink2 underline underline-offset-4 decoration-rule hover:text-ink hover:decoration-brass transition-colors">free ai clipping tool</a>.
+              paste a youtube link or upload a podcast, stream or interview. the ai picks the 3 to 15 moments worth posting,
+              reframes them to 9:16 around the people talking, and burns in the captions. ready for tiktok, reels and shorts in minutes.
             </p>
 
             {/* The hero CTA is the product itself: paste a link and land in the
@@ -341,10 +365,13 @@ export default function Landing({ onLaunchApp }) {
               <span className="apparatus-glow" aria-hidden="true" />
               <div className="apparatus-chamber">
                 <video
-                  src="/demo/clip-vertical.mp4"
+                  key={DEMOS[heroDemo].id}
+                  src={DEMOS[heroDemo].vertical}
+                  poster={DEMOS[heroDemo].posterV}
                   autoPlay
                   muted
-                  loop
+                  loop={DEMOS.length === 1}
+                  onEnded={() => setHeroDemo((i) => (i + 1) % DEMOS.length)}
                   playsInline
                   preload="metadata"
                   className="w-full h-full object-cover"
@@ -374,21 +401,21 @@ export default function Landing({ onLaunchApp }) {
         </div>
       </section>
 
-      {/* Stats — three-stat row */}
+      {/* Proof — real usage numbers, read from the production database and
+          GitHub on 6-oct-2026. Update by hand; never round them up. */}
       <section className="border-b border-rule">
-        <div className="max-w-6xl mx-auto px-6 py-12 grid grid-cols-3 divide-x divide-rule text-center">
-          <div className="px-4">
-            <div className="font-display text-4xl md:text-5xl text-ink tabular-nums">3–15</div>
-            <div className="eyebrow mt-2">Clips per Video</div>
-          </div>
-          <div className="px-4">
-            <div className="font-display text-4xl md:text-5xl text-ink tabular-nums">30+</div>
-            <div className="eyebrow mt-2">Dubbing Languages</div>
-          </div>
-          <div className="px-4">
-            <div className="font-display text-4xl md:text-5xl text-ink tabular-nums">100%</div>
-            <div className="eyebrow mt-2">Open Source</div>
-          </div>
+        <div className="max-w-6xl mx-auto px-6 py-12 grid grid-cols-2 md:grid-cols-4 gap-y-8 md:divide-x divide-rule text-center">
+          {[
+            ['20,000+', 'accounts created'],
+            ['13,800+', 'videos clipped'],
+            ['3,100+', 'hours of video processed'],
+            ['6.1k', 'github stars'],
+          ].map(([n, label]) => (
+            <div key={label} className="px-4">
+              <div className="font-display text-4xl md:text-5xl text-ink tabular-nums">{n}</div>
+              <div className="eyebrow mt-2">{label}</div>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -396,33 +423,54 @@ export default function Landing({ onLaunchApp }) {
       <section className="py-20 px-6">
         <div className="max-w-5xl mx-auto">
           <SectionHeader eyebrow="01 · Smart Crop" title="one video in. the moment, reframed.">
-            Real output: AI face tracking reframes 16:9 to vertical 9:16 — no manual positioning.
+            Real output, not a mock-up: the AI picks the moment, reframes 16:9 to vertical 9:16 and burns in the captions.
           </SectionHeader>
-          <div className="flex flex-col md:flex-row items-center gap-8 md:gap-10">
-            <figure className="crop-frame crop-frame-16-9 w-full max-w-xl min-w-0" aria-label="original 16:9 source video">
-              <video
-                src="/demo/clip-source.mp4"
-                autoPlay
-                muted
-                loop
-                playsInline
-                preload="metadata"
-              />
-            </figure>
-            <div className="crop-leader" aria-hidden="true">
-              <span className="readout whitespace-nowrap">AI Tracking → 9:16</span>
-              <span className="crop-leader-line" />
+          {DEMOS.length > 1 && (
+            <div className="flex flex-wrap gap-2 mb-8" role="tablist" aria-label="Example clips">
+              {DEMOS.map((d, i) => (
+                <button
+                  key={d.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={cropDemo === i}
+                  onClick={() => setCropDemo(i)}
+                  className={`px-4 py-1.5 rounded-full border text-sm lowercase transition-colors ${cropDemo === i ? 'bg-brass text-brassink border-brass' : 'border-rule text-muted hover:text-ink'}`}
+                >
+                  {d.tab}
+                </button>
+              ))}
             </div>
-            <figure className="crop-frame crop-frame-9-16 w-[180px] md:w-[210px] flex-none" aria-label="vertical 9:16 clip generated by openshorts">
-              <video
-                src="/demo/clip-vertical.mp4"
-                autoPlay
-                muted
-                loop
-                playsInline
-                preload="metadata"
-              />
-            </figure>
+          )}
+          <figure className="crop-frame crop-frame-16-9 w-full" aria-label="original video next to the vertical clip OpenShorts made from it">
+            <video
+              key={DEMOS[cropDemo].id}
+              src={DEMOS[cropDemo].video}
+              poster={DEMOS[cropDemo].poster}
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              width="960"
+              height="540"
+              className="w-full h-auto block"
+            />
+          </figure>
+          <p className="mt-6 text-xs text-muted">
+            Source: <a href={DEMOS[cropDemo].creditUrl} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-ink">{DEMOS[cropDemo].credit}</a>, {DEMOS[cropDemo].creditBy}, licensed CC BY. Clipped by OpenShorts.
+          </p>
+          <div className="mt-10 flex flex-wrap items-center gap-4">
+            <button
+              type="button"
+              onClick={() => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                document.querySelector('.hero-input-row input')?.focus({ preventScroll: true });
+              }}
+              className="btn-primary whitespace-nowrap"
+            >
+              try it on your own video <ArrowRight size={16} />
+            </button>
+            <span className="text-sm text-muted">first video free up to 60 min, no credit card</span>
           </div>
         </div>
       </section>
@@ -437,11 +485,11 @@ export default function Landing({ onLaunchApp }) {
             <div className="card p-8 flex flex-col border-brass">
               <div className="flex flex-wrap items-center gap-3 mb-3">
                 <Sparkles size={18} className="text-brass" />
-                <h3 className="font-display text-2xl lowercase text-ink">cloud — openshorts.app</h3>
+                <h3 className="font-display text-2xl lowercase text-ink">cloud · openshorts.app</h3>
                 <span className="badge-brass">Recommended · Free Plan</span>
               </div>
               <ul className="space-y-1.5 mb-6 flex-1">
-                {['Our NVIDIA GPU: an 8-min video in about 50s', 'Gemini key included, nothing to set up', 'Social publishing built in', 'First video free up to 60 min, then 20 min/month, no card'].map((f, i) => (
+                {['Our NVIDIA GPU: an 8-min video in about 50s', 'Gemini key included, nothing to set up', 'Social publishing built in', 'Connect Claude or ChatGPT directly: paste one URL, no API key', 'First video free up to 60 min, then 20 min/month, no card'].map((f, i) => (
                   <li key={i} className="flex items-center gap-2 text-sm text-muted"><Check size={14} className="text-ok shrink-0" />{f}</li>
                 ))}
               </ul>
@@ -458,7 +506,7 @@ export default function Landing({ onLaunchApp }) {
             <div className="card p-8 flex flex-col">
               <div className="flex flex-wrap items-center gap-3 mb-3">
                 <Github size={18} className="text-muted" />
-                <h3 className="font-display text-2xl lowercase text-ink">self-hosted — for developers</h3>
+                <h3 className="font-display text-2xl lowercase text-ink">self-hosted · for developers</h3>
                 <span className="readout border border-rule rounded-full px-2.5 py-1">Free · Docker</span>
               </div>
               <ul className="space-y-1.5 mb-6 flex-1">
@@ -491,7 +539,7 @@ export default function Landing({ onLaunchApp }) {
       <section className="py-20 px-6 border-t border-rule">
         <div className="max-w-6xl mx-auto">
           <SectionHeader eyebrow="04 · Tools" title="3 Free Tools in 1 Platform">
-            Everything below is included in cloud plans — no keys, no setup.
+            Everything below is included in cloud plans: no keys, no setup.
           </SectionHeader>
           <div className="grid md:grid-cols-3 gap-5">
             <div className="card p-8">
@@ -648,7 +696,7 @@ export default function Landing({ onLaunchApp }) {
       <section id="comparison" className="py-20 px-6 border-t border-rule">
         <div className="max-w-4xl mx-auto">
           <SectionHeader eyebrow="09 · Comparison" title="Free Clip Generator vs Paid Alternatives">
-            Hosted OpenShorts starts at $12/mo — or self-host free. Opus Clip runs $15-228/month, Kapwing $24-79/month.
+            Hosted OpenShorts starts at $12/mo, or self-host it free. Opus Clip starts at $15/month, Kapwing at $24/month.
           </SectionHeader>
           <div className="overflow-x-auto">
             <table className="w-full">

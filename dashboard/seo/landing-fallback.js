@@ -99,9 +99,10 @@ const card = (title, body) =>
 export const LANDING_FALLBACK = `<div id="seo-content" style="background:oklch(13% 0.014 265);color:oklch(86% 0.01 262);font-family:'Geist',ui-sans-serif,system-ui,sans-serif;line-height:1.65">
 
 <section style="${S.section};padding-top:4rem"><div style="${S.wrap}">
-  <p style="${S.eyebrow}">AI clip generator &middot; cloud or self-hosted</p>
-  <h1 style="${S.h1}">the free open source ai clip generator, built to clip what people actually watch.</h1>
-  <p style="${S.p};max-width:44rem;font-size:1.05rem">Turn long videos into viral 9:16 shorts, or generate UGC marketing videos with AI actors. Online in the cloud with zero setup, or self-hosted with Docker for free. Also a clipping tool for AI agents: Claude, ChatGPT and n8n drive it over <a href="/mcp" style="${S.a}">MCP</a>, or run a channel on autopilot with <a href="/auto-clip" style="${S.a}">Autopilot</a> or the <a href="/n8n-youtube-shorts-automation" style="${S.a}">n8n workflow</a>. Just want it free? Start with the <a href="/free-ai-clip-generator" style="${S.a}">free AI clipping tool</a>.</p>
+  <p style="${S.eyebrow}">Free AI clip generator &middot; open source</p>
+  <h1 style="${S.h1}">long video in. viral shorts out.</h1>
+  <p style="${S.p};max-width:44rem;font-size:1.05rem">Paste a YouTube link or upload a podcast, stream or interview. The AI picks the 3 to 15 moments worth posting, reframes them to 9:16 around the people talking, and burns in the captions, ready for TikTok, Reels and Shorts in minutes. Prefer to run it yourself? It is <a href="/free-ai-clip-generator" style="${S.a}">free and open source</a>. Claude, ChatGPT and n8n can drive it too, over <a href="/mcp" style="${S.a}">MCP</a>.</p>
+  <p style="${S.muted};max-width:44rem">20,000+ accounts created &middot; 13,800+ videos clipped &middot; 3,100+ hours of video processed &middot; 6.1k GitHub stars.</p>
   <p style="${S.muted};max-width:44rem"><strong style="color:oklch(75% 0.11 150)">No credit card required.</strong> Your first video is free up to 60 minutes, then 20 free minutes every month. Paid plans from $12/month without a watermark. Prefer to run it yourself? <a style="${S.a}" href="https://github.com/mutonby/openshorts" rel="noopener">Self-host free on GitHub</a>.</p>
 </div></section>
 

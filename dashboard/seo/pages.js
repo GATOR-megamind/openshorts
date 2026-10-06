@@ -752,6 +752,14 @@ one side of the table.</p>
 <li>Subtitles are burned in from the word-level transcript, and finished clips post directly to TikTok, Instagram Reels and YouTube Shorts, or come back through the API.</li>
 </ol>
 
+<h2>Real podcast clips, next to their source</h2>
+<p>A two-person episode filmed as one wide shot: both hosts stay in frame,
+stacked, and the captions sit on the seam.</p>
+${demoBlock('split')}
+<p>An interview cut between host and guest instead: there is no two-shot to
+stack, so the crop tracks whoever is on screen.</p>
+${demoBlock('talk')}
+
 <h2>What a full episode costs to clip</h2>
 <p>Credit-metered tools bill on the length of the video you import, not on the
 clips you keep. As of October 2026, a 60-minute episode costs 60 credits at Opus
