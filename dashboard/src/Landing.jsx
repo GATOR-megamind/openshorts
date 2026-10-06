@@ -10,14 +10,16 @@ const APPARATUS_CALLOUTS = ['RATIO · 9:16', 'CLIPS · 3–15', 'DUB · 30+ LANG
 // the original and the clip side by side, in sync; `vertical` is the clip on
 // its own for the hero. The credit is what the licence asks for, so it stays
 // next to the video that uses it.
-// The five clips of that episode, in the order of the source, with the score
-// the moment picker gave each (job a02e9102, 6-oct-2026).
+// The six clips OpenShorts cut from that episode with no clip-count setting,
+// in source order, with the score the moment picker gave each (job f3ee5d96,
+// 6-oct-2026).
 const EPISODE_CLIPS = [
-  { n: 1, score: 85, title: 'I knew on our second date' },
-  { n: 2, score: 82, title: 'Do we do too much together?' },
-  { n: 3, score: 78, title: 'She did a deep dive on my old socials' },
-  { n: 4, score: 88, title: 'We used a selfie to buy our dream home' },
-  { n: 5, score: 75, title: 'The real definition of a winner' },
+  { n: 1, score: 88, title: 'I knew I was marrying her on our third date' },
+  { n: 2, score: 82, title: 'Why we do absolutely everything together' },
+  { n: 3, score: 75, title: 'She did a deep dive on my old social media' },
+  { n: 4, score: 85, title: 'How we won a bidding war with a photo' },
+  { n: 5, score: 72, title: 'Using our past to help others find freedom' },
+  { n: 6, score: 78, title: 'The real definition of a winner' },
 ];
 
 // Mounts the video only once it scrolls near the viewport, so five clip
@@ -444,13 +446,13 @@ export default function Landing({ onLaunchApp }) {
         </div>
       </section>
 
-      {/* One video in, many clips out: the five real clips OpenShorts cut
-          from one CC BY episode, with the score the AI gave each. The pattern
-          the market leader opens with, shown with our own output. */}
+      {/* One video in, many clips out: the real clips OpenShorts cut from one
+          CC BY episode with default settings, with the score the AI gave each.
+          The pattern the market leader opens with, shown with our own output. */}
       <section className="py-20 px-6 border-b border-rule">
         <div className="max-w-6xl mx-auto">
-          <SectionHeader eyebrow="01 · One Video, Five Clips" title="one 27-minute episode in. five ready-to-post clips out.">
-            No prompts and no scrubbing: the AI scored every moment, kept the five that stand on their own and cut them with captions and a hook.
+          <SectionHeader eyebrow="01 · One Video, Six Clips" title="one 27-minute episode in. six ready-to-post clips out.">
+            No prompts, no settings and no scrubbing: the AI scored every moment, kept the six that stand on their own and cut them with captions and a hook.
           </SectionHeader>
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,15rem)_auto_minmax(0,1fr)] gap-6 items-center">
             <figure className="m-0 max-w-[16rem] lg:max-w-none">
@@ -461,12 +463,12 @@ export default function Landing({ onLaunchApp }) {
               <figcaption className="text-xs text-muted mt-2">the full episode, 16:9</figcaption>
             </figure>
             <ArrowRight size={28} className="text-brass mx-auto rotate-90 lg:rotate-0" aria-hidden="true" />
-            <div className="flex gap-3 overflow-x-auto pb-2 snap-x">
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
               {EPISODE_CLIPS.map((c) => (
-                <figure key={c.n} className="m-0 shrink-0 w-[150px] snap-start">
+                <figure key={c.n} className="m-0 min-w-0">
                   <div className="relative rounded-card overflow-hidden border border-rule bg-paper2">
                     <LazyLoopVideo src={`/demo/ep-clip-${c.n}.mp4`} poster={`/screens/ep-clip-${c.n}.webp`} />
-                    <span className="absolute top-2 left-2 readout bg-paper/85 text-ok px-1.5 py-0.5 rounded">score {c.score}</span>
+                    <span className="absolute top-1.5 left-1.5 readout text-[10px] bg-paper/85 text-ok px-1.5 py-0.5 rounded">score {c.score}</span>
                   </div>
                   <figcaption className="text-xs text-ink2 mt-2 leading-snug">{c.title}</figcaption>
                 </figure>
