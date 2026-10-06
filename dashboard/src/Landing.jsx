@@ -566,12 +566,32 @@ export default function Landing({ onLaunchApp }) {
         </div>
       </section>
 
+      {/* Features Section */}
+      <section id="features" className="py-20 px-6 border-t border-rule">
+        <div className="max-w-6xl mx-auto">
+          <SectionHeader eyebrow="01 · Features" title="everything it does, on real clips">
+            Screens from the app and clips it made. Pick a feature, or let it play.
+          </SectionHeader>
+          <FeatureShowcase />
+          <details className="mt-12 group">
+            <summary className="list-none cursor-pointer text-sm text-muted hover:text-ink lowercase [&::-webkit-details-marker]:hidden">
+              the full feature list <ChevronDown size={14} className="inline transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5 mt-6">
+              {features.map((feature, i) => (
+                <FeatureCard key={i} {...feature} />
+              ))}
+            </div>
+          </details>
+        </div>
+      </section>
+
       {/* One video in, many clips out: the real clips OpenShorts cut from one
           CC BY episode with default settings, with the score the AI gave each.
           The pattern the market leader opens with, shown with our own output. */}
       <section className="py-20 px-6 border-b border-rule">
         <div className="max-w-6xl mx-auto">
-          <SectionHeader eyebrow="01 · One Video, Six Clips" title="one 27-minute episode in. six ready-to-post clips out.">
+          <SectionHeader eyebrow="02 · One Video, Six Clips" title="one 27-minute episode in. six ready-to-post clips out.">
             No prompts, no settings and no scrubbing: the AI scored every moment, kept the six that stand on their own and cut them with captions and a hook.
           </SectionHeader>
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,15rem)_auto_minmax(0,1fr)] gap-6 items-center">
@@ -604,7 +624,7 @@ export default function Landing({ onLaunchApp }) {
       {/* Smart crop — real product output: 16:9 source to 9:16 result */}
       <section className="py-20 px-6">
         <div className="max-w-5xl mx-auto">
-          <SectionHeader eyebrow="02 · Smart Crop" title="one video in. the moment, reframed.">
+          <SectionHeader eyebrow="03 · Smart Crop" title="one video in. the moment, reframed.">
             Real output, not a mock-up: the AI picks the moment, reframes 16:9 to vertical 9:16 and burns in the captions.
           </SectionHeader>
           {DEMOS.length > 1 && (
@@ -660,7 +680,7 @@ export default function Landing({ onLaunchApp }) {
       {/* How It Works Section */}
       <section id="how-it-works" className="py-20 px-6 border-t border-rule">
         <div className="max-w-4xl mx-auto">
-          <SectionHeader eyebrow="03 · Pipeline" title="How It Works">
+          <SectionHeader eyebrow="04 · Pipeline" title="How It Works">
             From long-form video to viral-ready clips in 5 automated steps.
           </SectionHeader>
           <div className="space-y-8">
@@ -674,7 +694,7 @@ export default function Landing({ onLaunchApp }) {
       {/* Two ways to use it: free self-host vs paid hosted */}
       <section className="py-20 px-6 border-t border-rule">
         <div className="max-w-4xl mx-auto">
-          <SectionHeader eyebrow="04 · Deploy" title="Two ways to use OpenShorts">
+          <SectionHeader eyebrow="05 · Deploy" title="Two ways to use OpenShorts">
             The same open source software, running either on our GPU or on your machine.
           </SectionHeader>
           <div className="grid md:grid-cols-2 gap-6">
@@ -723,7 +743,7 @@ export default function Landing({ onLaunchApp }) {
       {billingEnabled && (
         <section id="pricing" className="py-20 px-6 border-t border-rule">
           <div className="max-w-6xl mx-auto">
-            <SectionHeader eyebrow="05 · Pricing" title="Simple, transparent pricing">
+            <SectionHeader eyebrow="06 · Pricing" title="Simple, transparent pricing">
               Your first video is free, up to 60 minutes. Then 20 free minutes a month — no credit card. Cancel anytime.
             </SectionHeader>
             <PricingSection onRequireLogin={() => { window.location.hash = '#/pricing'; }} />
@@ -734,7 +754,7 @@ export default function Landing({ onLaunchApp }) {
       {/* Comparison Table */}
       <section id="comparison" className="py-20 px-6 border-t border-rule">
         <div className="max-w-4xl mx-auto">
-          <SectionHeader eyebrow="06 · Comparison" title="Free Clip Generator vs Paid Alternatives">
+          <SectionHeader eyebrow="07 · Comparison" title="Free Clip Generator vs Paid Alternatives">
             Hosted OpenShorts starts at $12/mo, or self-host it free. Opus Clip starts at $15/month, Kapwing at $24/month.
           </SectionHeader>
           <div className="overflow-x-auto">
@@ -768,26 +788,6 @@ export default function Landing({ onLaunchApp }) {
               </tbody>
             </table>
           </div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section id="features" className="py-20 px-6 border-t border-rule">
-        <div className="max-w-6xl mx-auto">
-          <SectionHeader eyebrow="07 · Features" title="everything it does, on real clips">
-            Screens from the app and clips it made. Pick a feature, or let it play.
-          </SectionHeader>
-          <FeatureShowcase />
-          <details className="mt-12 group">
-            <summary className="list-none cursor-pointer text-sm text-muted hover:text-ink lowercase [&::-webkit-details-marker]:hidden">
-              the full feature list <ChevronDown size={14} className="inline transition-transform group-open:rotate-180" />
-            </summary>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5 mt-6">
-              {features.map((feature, i) => (
-                <FeatureCard key={i} {...feature} />
-              ))}
-            </div>
-          </details>
         </div>
       </section>
 
