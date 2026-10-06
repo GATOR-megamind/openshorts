@@ -300,7 +300,8 @@ export default function Landing({ onLaunchApp }) {
             <p className="eyebrow mb-6">00 · Free AI Clip Generator · Open Source</p>
 
             <h1 className="hero-h1 mb-6">
-              long video in. <em>viral shorts</em> out.
+              <span className="block">long video in.</span>
+              <span className="block"><em>viral shorts</em> out.</span>
             </h1>
 
             <p className="hero-description text-muted max-w-2xl mb-8 leading-relaxed lowercase">
@@ -475,10 +476,24 @@ export default function Landing({ onLaunchApp }) {
         </div>
       </section>
 
+      {/* How It Works Section */}
+      <section id="how-it-works" className="py-20 px-6 border-t border-rule">
+        <div className="max-w-4xl mx-auto">
+          <SectionHeader eyebrow="02 · Pipeline" title="How It Works">
+            From long-form video to viral-ready clips in 5 automated steps.
+          </SectionHeader>
+          <div className="space-y-8">
+            {steps.map((step, i) => (
+              <StepCard key={i} number={i + 1} {...step} />
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Two ways to use it: free self-host vs paid hosted */}
       <section className="py-20 px-6 border-t border-rule">
         <div className="max-w-4xl mx-auto">
-          <SectionHeader eyebrow="02 · Deploy" title="Two ways to use OpenShorts">
+          <SectionHeader eyebrow="03 · Deploy" title="Two ways to use OpenShorts">
             The same open source software, running either on our GPU or on your machine.
           </SectionHeader>
           <div className="grid md:grid-cols-2 gap-6">
@@ -527,7 +542,7 @@ export default function Landing({ onLaunchApp }) {
       {billingEnabled && (
         <section id="pricing" className="py-20 px-6 border-t border-rule">
           <div className="max-w-6xl mx-auto">
-            <SectionHeader eyebrow="03 · Pricing" title="Simple, transparent pricing">
+            <SectionHeader eyebrow="04 · Pricing" title="Simple, transparent pricing">
               Your first video is free, up to 60 minutes. Then 20 free minutes a month — no credit card. Cancel anytime.
             </SectionHeader>
             <PricingSection onRequireLogin={() => { window.location.hash = '#/pricing'; }} />
@@ -535,167 +550,10 @@ export default function Landing({ onLaunchApp }) {
         </section>
       )}
 
-      {/* 3 Tools in 1 Section */}
-      <section className="py-20 px-6 border-t border-rule">
-        <div className="max-w-6xl mx-auto">
-          <SectionHeader eyebrow="04 · Tools" title="3 Free Tools in 1 Platform">
-            Everything below is included in cloud plans: no keys, no setup.
-          </SectionHeader>
-          <div className="grid md:grid-cols-3 gap-5">
-            <div className="card p-8">
-              <p className="eyebrow mb-4">01 · Clips</p>
-              <Scissors size={20} className="text-brass mb-4" />
-              <h3 className="font-display text-2xl lowercase text-ink mb-2">Clip Generator</h3>
-              <p className="text-muted text-sm leading-relaxed mb-4">Open source AI clipping tool: turn long-form videos into viral-ready 9:16 shorts.</p>
-              <ul className="space-y-1.5">
-                {['AI viral moment detection', 'Smart face-tracking crop', 'Auto subtitles + AI dubbing in 30+ languages'].map((f, i) => (
-                  <li key={i} className="flex items-center gap-2 text-xs text-muted"><Check size={12} className="text-ok shrink-0" />{f}</li>
-                ))}
-              </ul>
-            </div>
-            <div className="card p-8">
-              <p className="eyebrow mb-4">02 · AI Shorts</p>
-              <Sparkles size={20} className="text-brass mb-4" />
-              <h3 className="font-display text-2xl lowercase text-ink mb-2">AI Shorts</h3>
-              <p className="text-muted text-sm leading-relaxed mb-4">UGC marketing videos with AI actors for any business.</p>
-              <ul className="space-y-1.5">
-                {['AI actor generation + lip-sync', 'B-roll + TikTok-style subtitles', 'From $0.65 per video'].map((f, i) => (
-                  <li key={i} className="flex items-center gap-2 text-xs text-muted"><Check size={12} className="text-ok shrink-0" />{f}</li>
-                ))}
-              </ul>
-            </div>
-            <div className="card p-8">
-              <p className="eyebrow mb-4">03 · Studio</p>
-              <Monitor size={20} className="text-brass mb-4" />
-              <h3 className="font-display text-2xl lowercase text-ink mb-2">YouTube Studio</h3>
-              <p className="text-muted text-sm leading-relaxed mb-4">Free AI YouTube toolkit: thumbnails, titles, descriptions.</p>
-              <ul className="space-y-1.5">
-                {['AI thumbnail generator (with face upload)', '10 viral title suggestions + chat', 'Direct publish to YouTube'].map((f, i) => (
-                  <li key={i} className="flex items-center gap-2 text-xs text-muted"><Check size={12} className="text-ok shrink-0" />{f}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section id="features" className="py-20 px-6 border-t border-rule">
-        <div className="max-w-6xl mx-auto">
-          <SectionHeader eyebrow="05 · Features" title="Free AI Clip Generator + UGC Video Creator">
-            The free open source clip generator & AI UGC video creator. A smart AI video clipper for TikTok, Reels & Shorts.
-          </SectionHeader>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {features.map((feature, i) => (
-              <FeatureCard key={i} {...feature} />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* API Keys Section */}
-      <section className="py-20 px-6 border-t border-rule">
-        <div className="max-w-5xl mx-auto">
-          <SectionHeader eyebrow="06 · API Keys" title="Self-hosting? Every API has a free tier">
-            Cloud plans include managed Gemini and social publishing — you never touch an API key. Self-hosters bring their own keys (all with generous free tiers):
-          </SectionHeader>
-          <div className="grid md:grid-cols-3 gap-5">
-            <div className="card p-6 relative">
-              <span className="badge-brass absolute top-4 right-4">Required</span>
-              <div className="w-10 h-10 rounded-input bg-paper3 flex items-center justify-center mb-4">
-                <Cpu size={18} className="text-brass" />
-              </div>
-              <h3 className="font-display text-xl lowercase text-ink mb-1">Google Gemini API</h3>
-              <div className="mb-3"><span className="badge-ok">Free tier: 1,500 req/day</span></div>
-              <p className="text-muted text-sm leading-relaxed">Powers all AI features: viral moment detection, title generation, video effects, YouTube thumbnail creation, and description writing. The core engine of OpenShorts.</p>
-            </div>
-            <div className="card p-6 relative">
-              <span className="readout absolute top-4 right-4 border border-rule rounded-full px-2.5 py-1">Optional</span>
-              <div className="w-10 h-10 rounded-input bg-paper3 flex items-center justify-center mb-4">
-                <Languages size={18} className="text-brass" />
-              </div>
-              <h3 className="font-display text-xl lowercase text-ink mb-1">ElevenLabs API</h3>
-              <div className="mb-3"><span className="badge-ok">Free tier included</span></div>
-              <p className="text-muted text-sm leading-relaxed">Enables AI voice dubbing and translation in 30+ languages. Preserves the original speaker's voice while translating audio. Dubbed clips are auto-subtitled.</p>
-            </div>
-            <div className="card p-6 relative">
-              <span className="readout absolute top-4 right-4 border border-rule rounded-full px-2.5 py-1">Optional</span>
-              <div className="w-10 h-10 rounded-input bg-paper3 flex items-center justify-center mb-4">
-                <Globe size={18} className="text-brass" />
-              </div>
-              <h3 className="font-display text-xl lowercase text-ink mb-1">Upload-Post API</h3>
-              <div className="mb-3"><span className="badge-ok">Free tier included</span></div>
-              <p className="text-muted text-sm leading-relaxed">Enables direct publishing to YouTube, TikTok, and Instagram Reels from the dashboard. <a href="https://www.upload-post.com" target="_blank" rel="noopener noreferrer" className="text-brass underline hover:brightness-110">Social media API</a> that lets you post your clips and thumbnails without leaving OpenShorts.</p>
-            </div>
-          </div>
-          <div className="grid md:grid-cols-2 gap-5 mt-5">
-            <div className="card p-6 relative">
-              <span className="readout absolute top-4 right-4 border border-rule rounded-full px-2.5 py-1">AI Shorts</span>
-              <div className="w-10 h-10 rounded-input bg-paper3 flex items-center justify-center mb-4">
-                <Zap size={18} className="text-brass" />
-              </div>
-              <h3 className="font-display text-xl lowercase text-ink mb-1">fal.ai API</h3>
-              <div className="mb-3"><span className="badge-ok">Pay-per-use from $0.04</span></div>
-              <p className="text-muted text-sm leading-relaxed">Powers AI Shorts: generates AI actor images (Flux), talking head videos (Hailuo/Kling), and lip-sync (VEED). Required only for the AI UGC video generator.</p>
-            </div>
-            <div className="card p-6 relative">
-              <span className="readout absolute top-4 right-4 border border-rule rounded-full px-2.5 py-1">AI Shorts</span>
-              <div className="w-10 h-10 rounded-input bg-paper3 flex items-center justify-center mb-4">
-                <Languages size={18} className="text-brass" />
-              </div>
-              <h3 className="font-display text-xl lowercase text-ink mb-1">ElevenLabs TTS</h3>
-              <div className="mb-3"><span className="badge-ok">Free tier included</span></div>
-              <p className="text-muted text-sm leading-relaxed">Generates natural voiceovers for AI Shorts from the script. Multiple voice options for male and female actors in English and Spanish.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* How It Works Section */}
-      <section id="how-it-works" className="py-20 px-6 border-t border-rule">
-        <div className="max-w-4xl mx-auto">
-          <SectionHeader eyebrow="07 · Pipeline" title="How It Works">
-            From long-form video to viral-ready clips in 5 automated steps.
-          </SectionHeader>
-          <div className="space-y-8">
-            {steps.map((step, i) => (
-              <StepCard key={i} number={i + 1} {...step} />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Tech Stack */}
-      <section className="py-20 px-6 border-t border-rule">
-        <div className="max-w-5xl mx-auto">
-          <SectionHeader eyebrow="08 · Stack" title="Built with Proven Technology">
-            Industry-leading AI models and open source tools in one pipeline.
-          </SectionHeader>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              { name: "Google Gemini 3.1", desc: "AI Analysis" },
-              { name: "faster-whisper", desc: "Transcription" },
-              { name: "YOLOv8", desc: "Object Detection" },
-              { name: "MediaPipe", desc: "Face Tracking" },
-              { name: "FFmpeg", desc: "Video Processing" },
-              { name: "ElevenLabs", desc: "Voice & TTS" },
-              { name: "fal.ai", desc: "AI Video Gen" },
-              { name: "React + Vite", desc: "Dashboard" },
-              { name: "Docker", desc: "Deployment" }
-            ].map((tech, i) => (
-              <div key={i} className="border border-rule rounded-input bg-paper2 px-4 py-3 text-center">
-                <div className="readout text-ink2">{tech.name}</div>
-                <div className="text-xs text-muted mt-1">{tech.desc}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Comparison Table */}
       <section id="comparison" className="py-20 px-6 border-t border-rule">
         <div className="max-w-4xl mx-auto">
-          <SectionHeader eyebrow="09 · Comparison" title="Free Clip Generator vs Paid Alternatives">
+          <SectionHeader eyebrow="05 · Comparison" title="Free Clip Generator vs Paid Alternatives">
             Hosted OpenShorts starts at $12/mo, or self-host it free. Opus Clip starts at $15/month, Kapwing at $24/month.
           </SectionHeader>
           <div className="overflow-x-auto">
@@ -732,10 +590,24 @@ export default function Landing({ onLaunchApp }) {
         </div>
       </section>
 
+      {/* Features Section */}
+      <section id="features" className="py-20 px-6 border-t border-rule">
+        <div className="max-w-6xl mx-auto">
+          <SectionHeader eyebrow="06 · Features" title="Free AI Clip Generator + UGC Video Creator">
+            The free open source clip generator & AI UGC video creator. A smart AI video clipper for TikTok, Reels & Shorts.
+          </SectionHeader>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {features.map((feature, i) => (
+              <FeatureCard key={i} {...feature} />
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Use Cases */}
       <section className="py-20 px-6 border-t border-rule">
         <div className="max-w-5xl mx-auto">
-          <SectionHeader eyebrow="10 · Use Cases" title="Who Uses OpenShorts?">
+          <SectionHeader eyebrow="07 · Use Cases" title="Who Uses OpenShorts?">
             Creators, marketers, and agencies scaling short-form video production.
           </SectionHeader>
           <div className="grid md:grid-cols-3 gap-5">
@@ -771,10 +643,43 @@ export default function Landing({ onLaunchApp }) {
         </div>
       </section>
 
+      {/* Also included: the two tools that are not the clipper */}
+      <section className="py-20 px-6 border-t border-rule">
+        <div className="max-w-6xl mx-auto">
+          <SectionHeader eyebrow="08 · Also Included" title="two more tools, same account">
+            In the same openshorts.app account, with no keys and no setup.
+          </SectionHeader>
+          <div className="grid md:grid-cols-2 gap-5">
+            <div className="card p-8">
+              <p className="eyebrow mb-4">01 · AI Shorts</p>
+              <Sparkles size={20} className="text-brass mb-4" />
+              <h3 className="font-display text-2xl lowercase text-ink mb-2">AI Shorts</h3>
+              <p className="text-muted text-sm leading-relaxed mb-4">UGC marketing videos with AI actors for any business.</p>
+              <ul className="space-y-1.5">
+                {['AI actor generation + lip-sync', 'B-roll + TikTok-style subtitles', 'From $0.65 per video'].map((f, i) => (
+                  <li key={i} className="flex items-center gap-2 text-xs text-muted"><Check size={12} className="text-ok shrink-0" />{f}</li>
+                ))}
+              </ul>
+            </div>
+            <div className="card p-8">
+              <p className="eyebrow mb-4">02 · Studio</p>
+              <Monitor size={20} className="text-brass mb-4" />
+              <h3 className="font-display text-2xl lowercase text-ink mb-2">YouTube Studio</h3>
+              <p className="text-muted text-sm leading-relaxed mb-4">Free AI YouTube toolkit: thumbnails, titles, descriptions.</p>
+              <ul className="space-y-1.5">
+                {['AI thumbnail generator (with face upload)', '10 viral title suggestions + chat', 'Direct publish to YouTube'].map((f, i) => (
+                  <li key={i} className="flex items-center gap-2 text-xs text-muted"><Check size={12} className="text-ok shrink-0" />{f}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* FAQ Section */}
       <section id="faq" className="py-20 px-6 border-t border-rule">
         <div className="max-w-3xl mx-auto">
-          <SectionHeader eyebrow="11 · FAQ" title="Frequently Asked Questions">
+          <SectionHeader eyebrow="09 · FAQ" title="Frequently Asked Questions">
             Everything you need to know about OpenShorts, from setup to features.
           </SectionHeader>
           <div className="divide-y divide-rule border-y border-rule">
@@ -791,11 +696,113 @@ export default function Landing({ onLaunchApp }) {
         </div>
       </section>
 
+      {/* Self-hosting details, folded: they matter to people who run it
+          themselves and are noise to someone deciding whether to try the cloud.
+          The content stays in the DOM, so crawlers still read it. */}
+      <section className="py-16 px-6 border-t border-rule">
+        <div className="max-w-5xl mx-auto">
+          <details className="group">
+            <summary className="list-none cursor-pointer flex items-center justify-between gap-6 [&::-webkit-details-marker]:hidden">
+              <span>
+                <span className="eyebrow block mb-3">10 · Self-Hosting</span>
+                <span className="font-display text-2xl md:text-3xl lowercase text-ink">running it yourself? the api keys and the stack</span>
+              </span>
+              <ChevronDown size={22} className="text-muted shrink-0 transition-transform group-open:rotate-180" />
+            </summary>
+            {/* API Keys Section */}
+            <section className="pt-12">
+              <div className="max-w-5xl mx-auto">
+                <SectionHeader eyebrow="API Keys" title="Self-hosting? Every API has a free tier">
+                  Cloud plans include managed Gemini and social publishing: you never touch an API key. Self-hosters bring their own keys (all with generous free tiers):
+                </SectionHeader>
+                <div className="grid md:grid-cols-3 gap-5">
+                  <div className="card p-6 relative">
+                    <span className="badge-brass absolute top-4 right-4">Required</span>
+                    <div className="w-10 h-10 rounded-input bg-paper3 flex items-center justify-center mb-4">
+                      <Cpu size={18} className="text-brass" />
+                    </div>
+                    <h3 className="font-display text-xl lowercase text-ink mb-1">Google Gemini API</h3>
+                    <div className="mb-3"><span className="badge-ok">Free tier: 1,500 req/day</span></div>
+                    <p className="text-muted text-sm leading-relaxed">Powers all AI features: viral moment detection, title generation, video effects, YouTube thumbnail creation, and description writing. The core engine of OpenShorts.</p>
+                  </div>
+                  <div className="card p-6 relative">
+                    <span className="readout absolute top-4 right-4 border border-rule rounded-full px-2.5 py-1">Optional</span>
+                    <div className="w-10 h-10 rounded-input bg-paper3 flex items-center justify-center mb-4">
+                      <Languages size={18} className="text-brass" />
+                    </div>
+                    <h3 className="font-display text-xl lowercase text-ink mb-1">ElevenLabs API</h3>
+                    <div className="mb-3"><span className="badge-ok">Free tier included</span></div>
+                    <p className="text-muted text-sm leading-relaxed">Enables AI voice dubbing and translation in 30+ languages. Preserves the original speaker's voice while translating audio. Dubbed clips are auto-subtitled.</p>
+                  </div>
+                  <div className="card p-6 relative">
+                    <span className="readout absolute top-4 right-4 border border-rule rounded-full px-2.5 py-1">Optional</span>
+                    <div className="w-10 h-10 rounded-input bg-paper3 flex items-center justify-center mb-4">
+                      <Globe size={18} className="text-brass" />
+                    </div>
+                    <h3 className="font-display text-xl lowercase text-ink mb-1">Upload-Post API</h3>
+                    <div className="mb-3"><span className="badge-ok">Free tier included</span></div>
+                    <p className="text-muted text-sm leading-relaxed">Enables direct publishing to YouTube, TikTok, and Instagram Reels from the dashboard. <a href="https://www.upload-post.com" target="_blank" rel="noopener noreferrer" className="text-brass underline hover:brightness-110">Social media API</a> that lets you post your clips and thumbnails without leaving OpenShorts.</p>
+                  </div>
+                </div>
+                <div className="grid md:grid-cols-2 gap-5 mt-5">
+                  <div className="card p-6 relative">
+                    <span className="readout absolute top-4 right-4 border border-rule rounded-full px-2.5 py-1">AI Shorts</span>
+                    <div className="w-10 h-10 rounded-input bg-paper3 flex items-center justify-center mb-4">
+                      <Zap size={18} className="text-brass" />
+                    </div>
+                    <h3 className="font-display text-xl lowercase text-ink mb-1">fal.ai API</h3>
+                    <div className="mb-3"><span className="badge-ok">Pay-per-use from $0.04</span></div>
+                    <p className="text-muted text-sm leading-relaxed">Powers AI Shorts: generates AI actor images (Flux), talking head videos (Hailuo/Kling), and lip-sync (VEED). Required only for the AI UGC video generator.</p>
+                  </div>
+                  <div className="card p-6 relative">
+                    <span className="readout absolute top-4 right-4 border border-rule rounded-full px-2.5 py-1">AI Shorts</span>
+                    <div className="w-10 h-10 rounded-input bg-paper3 flex items-center justify-center mb-4">
+                      <Languages size={18} className="text-brass" />
+                    </div>
+                    <h3 className="font-display text-xl lowercase text-ink mb-1">ElevenLabs TTS</h3>
+                    <div className="mb-3"><span className="badge-ok">Free tier included</span></div>
+                    <p className="text-muted text-sm leading-relaxed">Generates natural voiceovers for AI Shorts from the script. Multiple voice options for male and female actors in English and Spanish.</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* Tech Stack */}
+            <section className="pt-12">
+              <div className="max-w-5xl mx-auto">
+                <SectionHeader eyebrow="Stack" title="Built with Proven Technology">
+                  Industry-leading AI models and open source tools in one pipeline.
+                </SectionHeader>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[
+                    { name: "Google Gemini 3.1", desc: "AI Analysis" },
+                    { name: "faster-whisper", desc: "Transcription" },
+                    { name: "YOLOv8", desc: "Object Detection" },
+                    { name: "MediaPipe", desc: "Face Tracking" },
+                    { name: "FFmpeg", desc: "Video Processing" },
+                    { name: "ElevenLabs", desc: "Voice & TTS" },
+                    { name: "fal.ai", desc: "AI Video Gen" },
+                    { name: "React + Vite", desc: "Dashboard" },
+                    { name: "Docker", desc: "Deployment" }
+                  ].map((tech, i) => (
+                    <div key={i} className="border border-rule rounded-input bg-paper2 px-4 py-3 text-center">
+                      <div className="readout text-ink2">{tech.name}</div>
+                      <div className="text-xs text-muted mt-1">{tech.desc}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+          </details>
+        </div>
+      </section>
+
       {/* CTA Section — final statement */}
       <section className="py-24 px-6 border-t border-rule">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="font-display text-4xl md:text-5xl lowercase text-ink tracking-tight mb-5">start creating viral videos today.</h2>
-          <p className="text-muted mb-10 max-w-xl mx-auto leading-relaxed lowercase">first video free (up to 60 min) · then 20 min/month · no credit card — or self-host free with docker.</p>
+          <p className="text-muted mb-10 max-w-xl mx-auto leading-relaxed lowercase">first video free (up to 60 min) · then 20 min/month · no credit card, or self-host it free with docker.</p>
           <div className="flex flex-wrap items-center justify-center gap-4">
             {billingEnabled ? (
               <a href="#pricing" className="btn-primary whitespace-nowrap">
