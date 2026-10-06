@@ -4,20 +4,45 @@ import PricingSection from './components/PricingSection';
 import { useAuth } from './contexts/AuthContext';
 import './landing.css';
 
-// 64 deterministic tick heights: gaussian envelope × sine wave (no randomness)
-const METER_TICKS = Array.from({ length: 64 }, (_, i) => {
-  const t = i / 63;
-  const envelope = Math.exp(-((t - 0.5) ** 2) / (2 * 0.18 * 0.18));
-  const wave = 0.55 + 0.45 * Math.sin(i * 1.7);
-  return Math.round((4 + 24 * envelope * wave) * 10) / 10;
-});
-
 const APPARATUS_CALLOUTS = ['RATIO · 9:16', 'CLIPS · 3–15', 'DUB · 30+ LANGS', 'SUBS · WORD-LEVEL'];
 
 // Real clips OpenShorts made from Creative Commons (CC BY) sources. `video` is
 // the original and the clip side by side, in sync; `vertical` is the clip on
 // its own for the hero. The credit is what the licence asks for, so it stays
 // next to the video that uses it.
+// The five clips of that episode, in the order of the source, with the score
+// the moment picker gave each (job a02e9102, 6-oct-2026).
+const EPISODE_CLIPS = [
+  { n: 1, score: 85, title: 'I knew on our second date' },
+  { n: 2, score: 82, title: 'Do we do too much together?' },
+  { n: 3, score: 78, title: 'She did a deep dive on my old socials' },
+  { n: 4, score: 88, title: 'We used a selfie to buy our dream home' },
+  { n: 5, score: 75, title: 'The real definition of a winner' },
+];
+
+// Mounts the video only once it scrolls near the viewport, so five clip
+// previews cost nothing to a visitor who never gets that far.
+function LazyLoopVideo({ src, poster }) {
+  const ref = React.useRef(null);
+  const [show, setShow] = React.useState(false);
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === 'undefined') { setShow(true); return undefined; }
+    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setShow(true); io.disconnect(); } }, { rootMargin: '200px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  return (
+    <div ref={ref} className="aspect-[9/16] w-full">
+      {show ? (
+        <video src={src} poster={poster} autoPlay muted loop playsInline preload="metadata" className="w-full h-full object-cover block" />
+      ) : (
+        <img src={poster} alt="" loading="lazy" className="w-full h-full object-cover block" />
+      )}
+    </div>
+  );
+}
+
 const DEMOS = [
   {
     id: 'split',
@@ -108,6 +133,20 @@ export default function Landing({ onLaunchApp }) {
   const [heroUrl, setHeroUrl] = React.useState('');
   const [heroDemo, setHeroDemo] = React.useState(0);
   const [cropDemo, setCropDemo] = React.useState(0);
+  // Floating CTA: shown once the hero's own input has scrolled away, hidden
+  // again near the end where the closing CTA takes over.
+  const [stickyCta, setStickyCta] = React.useState(false);
+  React.useEffect(() => {
+    const onScroll = () => {
+      const form = document.querySelector('.hero-input-row');
+      const pastHero = form ? form.getBoundingClientRect().bottom < 0 : window.scrollY > 700;
+      const nearEnd = window.innerHeight + window.scrollY > document.documentElement.scrollHeight - 1100;
+      setStickyCta(pastHero && !nearEnd);
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   // Hand the pasted link to the app: MediaInput picks it up on mount, so the
   // user lands with their own video ready instead of on a pricing page.
@@ -329,6 +368,10 @@ export default function Landing({ onLaunchApp }) {
                   get free clips
                   <ArrowRight size={16} />
                 </button>
+                <button type="button" onClick={onLaunchApp} className="btn-ghost whitespace-nowrap">
+                  <Upload size={16} />
+                  upload a file
+                </button>
               </div>
             </form>
 
@@ -339,12 +382,6 @@ export default function Landing({ onLaunchApp }) {
                 <Check size={12} /> no credit card required
               </span>
               <span className="text-muted lowercase">first video free (up to 60 min) · then 20 min every month</span>
-              <button
-                onClick={onLaunchApp}
-                className="text-ink2 lowercase underline underline-offset-4 decoration-rule hover:text-ink hover:decoration-brass transition-colors"
-              >
-                or upload a video →
-              </button>
             </div>
 
             <p className="text-sm text-muted lowercase">
@@ -389,19 +426,6 @@ export default function Landing({ onLaunchApp }) {
         </div>
       </section>
 
-      {/* Meter strip */}
-      <section className="border-b border-rule" aria-hidden="true">
-        <div className="max-w-6xl mx-auto px-6 meter-strip">
-          <span className="readout whitespace-nowrap">Signal · 9:16</span>
-          <div className="meter-ticks">
-            {METER_TICKS.map((h, i) => (
-              <span key={i} className="meter-tick" style={{ height: `${h}px` }} />
-            ))}
-          </div>
-          <span className="readout whitespace-nowrap hidden sm:inline">Clips · 3–15 / video</span>
-        </div>
-      </section>
-
       {/* Proof — real usage numbers, read from the production database and
           GitHub on 6-oct-2026. Update by hand; never round them up. */}
       <section className="border-b border-rule">
@@ -420,10 +444,45 @@ export default function Landing({ onLaunchApp }) {
         </div>
       </section>
 
+      {/* One video in, many clips out: the five real clips OpenShorts cut
+          from one CC BY episode, with the score the AI gave each. The pattern
+          the market leader opens with, shown with our own output. */}
+      <section className="py-20 px-6 border-b border-rule">
+        <div className="max-w-6xl mx-auto">
+          <SectionHeader eyebrow="01 · One Video, Five Clips" title="one 27-minute episode in. five ready-to-post clips out.">
+            No prompts and no scrubbing: the AI scored every moment, kept the five that stand on their own and cut them with captions and a hook.
+          </SectionHeader>
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,15rem)_auto_minmax(0,1fr)] gap-6 items-center">
+            <figure className="m-0 max-w-[16rem] lg:max-w-none">
+              <div className="relative rounded-card overflow-hidden border border-rule">
+                <img src="/screens/ep-source.webp" alt="The original 16:9 podcast episode" width="640" height="360" loading="lazy" className="block w-full h-auto" />
+                <span className="absolute bottom-2 right-2 readout bg-paper/80 px-2 py-0.5 rounded">26:54</span>
+              </div>
+              <figcaption className="text-xs text-muted mt-2">the full episode, 16:9</figcaption>
+            </figure>
+            <ArrowRight size={28} className="text-brass mx-auto rotate-90 lg:rotate-0" aria-hidden="true" />
+            <div className="flex gap-3 overflow-x-auto pb-2 snap-x">
+              {EPISODE_CLIPS.map((c) => (
+                <figure key={c.n} className="m-0 shrink-0 w-[150px] snap-start">
+                  <div className="relative rounded-card overflow-hidden border border-rule bg-paper2">
+                    <LazyLoopVideo src={`/demo/ep-clip-${c.n}.mp4`} poster={`/screens/ep-clip-${c.n}.webp`} />
+                    <span className="absolute top-2 left-2 readout bg-paper/85 text-ok px-1.5 py-0.5 rounded">score {c.score}</span>
+                  </div>
+                  <figcaption className="text-xs text-ink2 mt-2 leading-snug">{c.title}</figcaption>
+                </figure>
+              ))}
+            </div>
+          </div>
+          <p className="mt-6 text-xs text-muted">
+            Source: <a href="https://www.youtube.com/watch?v=-KbQj_vboOU" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-ink">Turn the Tables with Dan and Shoshana Jordan</a>, Heritage of Faith, licensed CC BY. Clipped by OpenShorts, scores as the AI gave them.
+          </p>
+        </div>
+      </section>
+
       {/* Smart crop — real product output: 16:9 source to 9:16 result */}
       <section className="py-20 px-6">
         <div className="max-w-5xl mx-auto">
-          <SectionHeader eyebrow="01 · Smart Crop" title="one video in. the moment, reframed.">
+          <SectionHeader eyebrow="02 · Smart Crop" title="one video in. the moment, reframed.">
             Real output, not a mock-up: the AI picks the moment, reframes 16:9 to vertical 9:16 and burns in the captions.
           </SectionHeader>
           {DEMOS.length > 1 && (
@@ -479,7 +538,7 @@ export default function Landing({ onLaunchApp }) {
       {/* How It Works Section */}
       <section id="how-it-works" className="py-20 px-6 border-t border-rule">
         <div className="max-w-4xl mx-auto">
-          <SectionHeader eyebrow="02 · Pipeline" title="How It Works">
+          <SectionHeader eyebrow="03 · Pipeline" title="How It Works">
             From long-form video to viral-ready clips in 5 automated steps.
           </SectionHeader>
           <div className="space-y-8">
@@ -493,7 +552,7 @@ export default function Landing({ onLaunchApp }) {
       {/* Two ways to use it: free self-host vs paid hosted */}
       <section className="py-20 px-6 border-t border-rule">
         <div className="max-w-4xl mx-auto">
-          <SectionHeader eyebrow="03 · Deploy" title="Two ways to use OpenShorts">
+          <SectionHeader eyebrow="04 · Deploy" title="Two ways to use OpenShorts">
             The same open source software, running either on our GPU or on your machine.
           </SectionHeader>
           <div className="grid md:grid-cols-2 gap-6">
@@ -542,7 +601,7 @@ export default function Landing({ onLaunchApp }) {
       {billingEnabled && (
         <section id="pricing" className="py-20 px-6 border-t border-rule">
           <div className="max-w-6xl mx-auto">
-            <SectionHeader eyebrow="04 · Pricing" title="Simple, transparent pricing">
+            <SectionHeader eyebrow="05 · Pricing" title="Simple, transparent pricing">
               Your first video is free, up to 60 minutes. Then 20 free minutes a month — no credit card. Cancel anytime.
             </SectionHeader>
             <PricingSection onRequireLogin={() => { window.location.hash = '#/pricing'; }} />
@@ -553,7 +612,7 @@ export default function Landing({ onLaunchApp }) {
       {/* Comparison Table */}
       <section id="comparison" className="py-20 px-6 border-t border-rule">
         <div className="max-w-4xl mx-auto">
-          <SectionHeader eyebrow="05 · Comparison" title="Free Clip Generator vs Paid Alternatives">
+          <SectionHeader eyebrow="06 · Comparison" title="Free Clip Generator vs Paid Alternatives">
             Hosted OpenShorts starts at $12/mo, or self-host it free. Opus Clip starts at $15/month, Kapwing at $24/month.
           </SectionHeader>
           <div className="overflow-x-auto">
@@ -593,7 +652,7 @@ export default function Landing({ onLaunchApp }) {
       {/* Features Section */}
       <section id="features" className="py-20 px-6 border-t border-rule">
         <div className="max-w-6xl mx-auto">
-          <SectionHeader eyebrow="06 · Features" title="Free AI Clip Generator + UGC Video Creator">
+          <SectionHeader eyebrow="07 · Features" title="Free AI Clip Generator + UGC Video Creator">
             The free open source clip generator & AI UGC video creator. A smart AI video clipper for TikTok, Reels & Shorts.
           </SectionHeader>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -607,7 +666,7 @@ export default function Landing({ onLaunchApp }) {
       {/* Use Cases */}
       <section className="py-20 px-6 border-t border-rule">
         <div className="max-w-5xl mx-auto">
-          <SectionHeader eyebrow="07 · Use Cases" title="Who Uses OpenShorts?">
+          <SectionHeader eyebrow="08 · Use Cases" title="Who Uses OpenShorts?">
             Creators, marketers, and agencies scaling short-form video production.
           </SectionHeader>
           <div className="grid md:grid-cols-3 gap-5">
@@ -646,7 +705,7 @@ export default function Landing({ onLaunchApp }) {
       {/* Also included: the two tools that are not the clipper */}
       <section className="py-20 px-6 border-t border-rule">
         <div className="max-w-6xl mx-auto">
-          <SectionHeader eyebrow="08 · Also Included" title="two more tools, same account">
+          <SectionHeader eyebrow="09 · Also Included" title="two more tools, same account">
             In the same openshorts.app account, with no keys and no setup.
           </SectionHeader>
           <div className="grid md:grid-cols-2 gap-5">
@@ -679,7 +738,7 @@ export default function Landing({ onLaunchApp }) {
       {/* FAQ Section */}
       <section id="faq" className="py-20 px-6 border-t border-rule">
         <div className="max-w-3xl mx-auto">
-          <SectionHeader eyebrow="09 · FAQ" title="Frequently Asked Questions">
+          <SectionHeader eyebrow="10 · FAQ" title="Frequently Asked Questions">
             Everything you need to know about OpenShorts, from setup to features.
           </SectionHeader>
           <div className="divide-y divide-rule border-y border-rule">
@@ -704,7 +763,7 @@ export default function Landing({ onLaunchApp }) {
           <details className="group">
             <summary className="list-none cursor-pointer flex items-center justify-between gap-6 [&::-webkit-details-marker]:hidden">
               <span>
-                <span className="eyebrow block mb-3">10 · Self-Hosting</span>
+                <span className="eyebrow block mb-3">11 · Self-Hosting</span>
                 <span className="font-display text-2xl md:text-3xl lowercase text-ink">running it yourself? the api keys and the stack</span>
               </span>
               <ChevronDown size={22} className="text-muted shrink-0 transition-transform group-open:rotate-180" />
@@ -827,6 +886,27 @@ export default function Landing({ onLaunchApp }) {
           </div>
         </div>
       </section>
+
+      {/* Floating CTA, the same form as the hero */}
+      <form
+        onSubmit={handleHeroSubmit}
+        aria-hidden={!stickyCta}
+        className={`fixed z-40 bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-xl flex items-center gap-2 p-2 rounded-full border border-rule bg-paper2/95 backdrop-blur shadow-2xl transition-all duration-300 ${stickyCta ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6 pointer-events-none'}`}
+      >
+        <Link2 size={16} className="ml-3 text-muted shrink-0 hidden sm:block" />
+        <input
+          type="url"
+          value={heroUrl}
+          onChange={(e) => setHeroUrl(e.target.value)}
+          placeholder="paste a video link"
+          tabIndex={stickyCta ? 0 : -1}
+          className="flex-1 min-w-0 bg-transparent outline-none text-sm text-ink placeholder:text-muted px-2"
+          aria-label="Video link"
+        />
+        <button type="submit" tabIndex={stickyCta ? 0 : -1} className="btn-primary whitespace-nowrap rounded-full text-sm">
+          get free clips <ArrowRight size={14} />
+        </button>
+      </form>
 
       {/* Footer — Ft5 Statement */}
       <footer className="border-t border-rule py-16 px-6">
