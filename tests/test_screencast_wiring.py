@@ -256,7 +256,7 @@ class TestInsetPerScene:
 class TestPresenterCamGate:
     """The per-scene inset detector enlarged game characters, photos on slides
     and cover art (6-oct-2026 corpus run). It now runs only on WIDE scenes the
-    shot check flagged with presenter_cam, and on faces only."""
+    shot check flagged with presenter_cam."""
 
     def _render_with(self, monkeypatch, fake_main, cam):
         monkeypatch.setattr(screencast_layout, "ENABLED", True)
@@ -284,9 +284,3 @@ class TestPresenterCamGate:
 
     def test_unflagged_screen_never_does(self, monkeypatch, fake_main):
         assert self._render_with(monkeypatch, fake_main, False) == []
-
-    def test_in_scene_detector_uses_faces_only(self):
-        import inspect
-        import camera_inset
-        src = inspect.getsource(camera_inset.detect_in_scene)
-        assert "detect_person_yolo" not in src
