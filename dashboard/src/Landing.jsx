@@ -78,6 +78,126 @@ const SectionHeader = ({ eyebrow, title, children }) => (
   </div>
 );
 
+// Every feature with its real visual: screenshots of the app and clips it
+// made. Rotates on its own until the visitor picks a tab.
+const SHOWCASE = [
+  {
+    id: 'moments', tab: 'finds the moments',
+    title: 'every clip scored before you see it',
+    body: 'Gemini reads the word-level transcript and the scene cuts, scores each moment out of 100, and writes the title and the description for every platform.',
+    media: { type: 'img', src: '/screens/app-clipcard.webp', w: 1153, h: 441, alt: 'A clip in OpenShorts with its viral score, titles and edit actions' },
+  },
+  {
+    id: 'reframe', tab: 'reframes any layout',
+    title: 'one face, two speakers, a whole screen',
+    body: 'Face tracking for one person, both speakers stacked for a two-shot, the screen kept whole for a screencast. Picked per video, nothing to configure.',
+    media: { type: 'video', src: '/demo/case-split.mp4', poster: '/screens/case-split.webp', w: 960, h: 540 },
+  },
+  {
+    id: 'captions', tab: '17 caption styles',
+    title: 'captions people actually read',
+    body: 'Word-level captions burned in, in 17 styles: Hormozi, pill, lime box, one word at a time, karaoke and more. Change the style of any clip in one click.',
+    media: { type: 'captions' },
+  },
+  {
+    id: 'hook', tab: 'hooks that stop the scroll',
+    title: 'a hook on the first second',
+    body: 'Every clip opens with a hook line written from what is said in it. Rewrite it, restyle it or move it before you post.',
+    media: { type: 'img', src: '/screens/app-hook.webp', w: 548, h: 587, alt: 'The hook editor with text, style, font and position' },
+  },
+  {
+    id: 'editor', tab: 'a real editor',
+    title: 'fix anything, down to the word',
+    body: 'Source and program monitors side by side with the full transcript: click a word to set a cut, add segments, change the framing, re-render in seconds.',
+    media: { type: 'img', src: '/screens/app-editor.webp', w: 1568, h: 652, alt: 'The OpenShorts clip editor with source monitor, program monitor, transcript and segments' },
+  },
+  {
+    id: 'autopilot', tab: 'autopilot',
+    title: 'your channel, clipped on its own',
+    body: 'Connect YouTube and every new upload becomes clips, optionally scheduled to your socials one a day. On paid plans.',
+    media: { type: 'img', src: '/screens/autopilot-settings.webp', w: 920, h: 672, alt: 'Autopilot settings' },
+  },
+  {
+    id: 'agents', tab: 'inside claude & chatgpt',
+    title: 'clip from a chat',
+    body: 'Add OpenShorts to Claude or ChatGPT with one URL and ask for clips. Same pipeline, same minutes, no API key to manage.',
+    media: { type: 'img', src: '/screens/connect-an-agent.webp', w: 684, h: 366, alt: 'Connecting OpenShorts to an AI agent' },
+  },
+  {
+    id: 'ugc', tab: 'ai ugc videos',
+    title: 'product videos with AI actors',
+    body: 'Describe a product or paste its URL: script, lip-synced AI actor, B-roll and captions, for well under a dollar a video on the low-cost mode.',
+    media: { type: 'img', src: '/screens/app-ugc.webp', w: 1114, h: 612, alt: 'The UGC gallery with AI actor videos' },
+  },
+];
+
+const CAPTION_STYLES = [
+  ['default', 'default'], ['hormozi', 'hormozi'], ['pill', 'pill'], ['lime', 'lime box'], ['oneword', 'one word'],
+];
+
+function ShowcaseMedia({ media }) {
+  if (media.type === 'video') {
+    return (
+      <video src={media.src} poster={media.poster} autoPlay muted loop playsInline preload="metadata"
+        width={media.w} height={media.h} className="w-full h-auto block rounded-card" />
+    );
+  }
+  if (media.type === 'captions') {
+    return (
+      <div className="grid grid-cols-5 gap-2 sm:gap-3">
+        {CAPTION_STYLES.map(([id, label]) => (
+          <figure key={id} className="m-0 min-w-0">
+            <video src={`/demo/caption-${id}.mp4`} poster={`/screens/caption-${id}.webp`} autoPlay muted loop playsInline
+              preload="metadata" className="w-full aspect-[9/16] object-cover block rounded-card border border-rule" />
+            <figcaption className="readout text-[10px] text-muted mt-2 text-center">{label}</figcaption>
+          </figure>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <img src={media.src} alt={media.alt} width={media.w} height={media.h} loading="lazy"
+      className="w-full h-auto block rounded-card border border-rule" />
+  );
+}
+
+function FeatureShowcase() {
+  const [active, setActive] = React.useState(0);
+  const [auto, setAuto] = React.useState(true);
+  React.useEffect(() => {
+    if (!auto) return undefined;
+    const t = setTimeout(() => setActive((i) => (i + 1) % SHOWCASE.length), 7000);
+    return () => clearTimeout(t);
+  }, [active, auto]);
+  const item = SHOWCASE[active];
+  return (
+    <div className="grid lg:grid-cols-[17rem_minmax(0,1fr)] gap-6 lg:gap-10 items-start">
+      <div className="flex lg:flex-col gap-2 overflow-x-auto pb-1 -mx-1 px-1" role="tablist" aria-label="Features">
+        {SHOWCASE.map((f, i) => (
+          <button
+            key={f.id}
+            type="button"
+            role="tab"
+            aria-selected={i === active}
+            onClick={() => { setActive(i); setAuto(false); }}
+            className={`relative shrink-0 text-left rounded-card border px-4 py-3 text-sm lowercase transition-colors overflow-hidden ${i === active ? 'border-brass text-ink bg-paper2' : 'border-rule text-muted hover:text-ink'}`}
+          >
+            {f.tab}
+            {i === active && auto && (
+              <span key={`p-${active}`} className="showcase-progress absolute left-0 bottom-0 h-0.5 bg-brass" aria-hidden="true" />
+            )}
+          </button>
+        ))}
+      </div>
+      <div key={item.id} className="showcase-in min-w-0" role="tabpanel">
+        <h3 className="font-display text-3xl md:text-4xl lowercase text-ink mb-3">{item.title}</h3>
+        <p className="text-muted max-w-2xl mb-6 leading-relaxed">{item.body}</p>
+        <ShowcaseMedia media={item.media} />
+      </div>
+    </div>
+  );
+}
+
 const FeatureCard = ({ icon, title, description }) => {
   const Icon = icon;
   return (
@@ -654,14 +774,20 @@ export default function Landing({ onLaunchApp }) {
       {/* Features Section */}
       <section id="features" className="py-20 px-6 border-t border-rule">
         <div className="max-w-6xl mx-auto">
-          <SectionHeader eyebrow="07 · Features" title="Free AI Clip Generator + UGC Video Creator">
-            The free open source clip generator & AI UGC video creator. A smart AI video clipper for TikTok, Reels & Shorts.
+          <SectionHeader eyebrow="07 · Features" title="everything it does, on real clips">
+            Screens from the app and clips it made. Pick a feature, or let it play.
           </SectionHeader>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {features.map((feature, i) => (
-              <FeatureCard key={i} {...feature} />
-            ))}
-          </div>
+          <FeatureShowcase />
+          <details className="mt-12 group">
+            <summary className="list-none cursor-pointer text-sm text-muted hover:text-ink lowercase [&::-webkit-details-marker]:hidden">
+              the full feature list <ChevronDown size={14} className="inline transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5 mt-6">
+              {features.map((feature, i) => (
+                <FeatureCard key={i} {...feature} />
+              ))}
+            </div>
+          </details>
         </div>
       </section>
 
