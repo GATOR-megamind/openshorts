@@ -15,9 +15,9 @@ interface SubtitlesProps {
   config: SubtitleConfig;
 }
 
-// Hebrew, Arabic, Syriac, Thaana, NKo and their presentation forms. The words
-// are laid out as flex items, which always run left to right, so a block in
-// one of these scripts has to flip the row itself (github issue #89).
+// Hebrew, Arabic, Syriac, Thaana, NKo and their presentation forms. A block in
+// one of these scripts sets direction: rtl so the words run right to left
+// (github issue #89).
 const RTL_CHARS = /[\u0590-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF]/;
 
 const POSITION_MAP: Record<string, React.CSSProperties> = {
@@ -108,31 +108,38 @@ const SubtitleBlock: React.FC<SubtitleBlockProps> = ({
         ...positionStyle,
       }}
     >
+      {/* Words are joined with a real space in the caption font, as the burn
+          does (subtitles.generate_ass joins them with " "). A fixed flex gap
+          was 8px at a ~144px font, so the preview read "KNEWMELIKE" where the
+          clip says "KNEW ME LIKE". The container carries the font so that
+          space has the right width. */}
       <div
         style={{
-          display: "flex",
-          flexWrap: "wrap",
-          justifyContent: "center",
+          textAlign: "center",
           direction: block.words.some((w) => RTL_CHARS.test(w.text)) ? "rtl" : "ltr",
-          gap: "6px 8px",
+          fontFamily: fontStack,
+          fontSize: style.fontSize,
+          fontWeight: 700,
           maxWidth: "85%",
           ...bgStyle,
         }}
       >
         {block.words.map((word, i) => (
-          <WordSpan
-            key={i}
-            word={word.text}
-            isActive={i === activeIndex}
-            hidden={!!style.reveal && activeIndex >= 0 && i > activeIndex}
-            style={style}
-            fontStack={fontStack}
-            animation={style.animation}
-            frame={frame}
-            fps={fps}
-            wordStartMs={word.startMs}
-            blockStartMs={blockStartMs}
-          />
+          <React.Fragment key={i}>
+            {i > 0 && " "}
+            <WordSpan
+              word={word.text}
+              isActive={i === activeIndex}
+              hidden={!!style.reveal && activeIndex >= 0 && i > activeIndex}
+              style={style}
+              fontStack={fontStack}
+              animation={style.animation}
+              frame={frame}
+              fps={fps}
+              wordStartMs={word.startMs}
+              blockStartMs={blockStartMs}
+            />
+          </React.Fragment>
         ))}
       </div>
     </div>
@@ -196,7 +203,10 @@ const WordSpan: React.FC<WordSpanProps> = ({
           config: { mass: 0.5, stiffness: 300, damping: 12 },
           durationInFrames: 10,
         });
-        const scaleValue = interpolate(scale, [0, 1], [1, 1.25]);
+        // Same range as the burned pop (\fscx90 -> \fscx108). A transform
+        // takes no layout space, so the old 1.25 spilled over the space on
+        // both sides and glued the active word to its neighbours.
+        const scaleValue = interpolate(scale, [0, 1], [0.9, 1.08]);
         transform = `scale(${scaleValue})`;
         break;
       }
