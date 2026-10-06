@@ -63,6 +63,16 @@ scale_cuda does not match swscale); yt-dlp chunking/concurrent fragments (no
 gain). Method for such changes: record Gemini decisions once and replay them,
 run old and new code side by side, compare clips by decoded-frame MD5 / SSIM.
 
+## Parakeet writes some English in Cyrillic
+
+`transcribe_backends._repair_script_drift`. Parakeet v3 picks the language per
+VAD segment, so on short segments it can spell English phonetically in
+Ukrainian/Russian ("Тудей Марк із гана такі сторі") while the file still reads
+`en` and the whisper fallback never fires (5-oct-2026: 9 of 18 English jobs on
+disk). Segments whose script cannot belong to the file's language are
+re-transcribed with whisper forced to that language; any failure keeps the
+parakeet text.
+
 ## Failures the user should never see (`app.run_job_wrapper`)
 
 - **Auto-retry**: a failed job whose error text is transient (CUDA/OOM, NVENC
