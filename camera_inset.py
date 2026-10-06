@@ -199,6 +199,13 @@ def detect(video_path, samples=10):
     if len(boxes) < max(3, samples // 3):
         return None
 
+    return stable_box(boxes, frame_w, frame_h)
+
+
+def stable_box(boxes, frame_w, frame_h, min_agree=3):
+    """Median of the inset boxes that agree with each other, or None."""
+    import numpy as np
+
     arr = np.array(boxes, dtype=float)
 
     # Stability gate. Without it, a presenter standing in front of a screen and
@@ -216,7 +223,7 @@ def detect(video_path, samples=10):
     tolerance = frame_w * MAX_CENTRE_SPREAD
     close = ((np.abs(centres_x - mid_x) <= tolerance)
              & (np.abs(centres_y - mid_y) <= tolerance))
-    if close.sum() < max(3, 0.6 * len(boxes)):
+    if close.sum() < max(min_agree, 0.6 * len(boxes)):
         return None
 
     arr = arr[close]
@@ -224,6 +231,121 @@ def detect(video_path, samples=10):
     if not usable(median, frame_h):
         return None
     return median
+
+
+# A webcam window frames head and shoulders: the face is about a third of its
+# width. Used for overlays that float mid-screen, where inset_box's corner
+# anchoring does not apply and pushed the crop up onto the ceiling.
+OVERLAY_FACE_WIDTHS = 3.0
+
+
+def overlay_box(box, frame_w, frame_h, widen=OVERLAY_FACE_WIDTHS):
+    """A 16:9 box centred on a detected face (or upper body), clamped."""
+    x, y, w, h = box
+    new_w = min(frame_w, w * widen)
+    new_h = min(frame_h, new_w / INSET_ASPECT)
+    cx, cy = x + w / 2.0, y + h / 2.0
+    new_x = max(0, min(cx - new_w / 2.0, frame_w - new_w))
+    new_y = max(0, min(cy - new_h * 0.45, frame_h - new_h))
+    return (int(round(new_x)), int(round(new_y)),
+            int(round(new_w)), int(round(new_h)))
+
+
+def detect_in_scene(video_path, start_f, end_f, samples=5):
+    """A presenter window laid over the screen in this one scene, or None.
+
+    ``detect`` is the clip-wide check and insists on a corner, because nothing
+    upstream of it says the frame is a screen. Here the shot check already did
+    (this runs only on scenes Gemini called "screen"), so a small face that
+    stays put is the presenter's camera wherever it floats: a QuickTime or Loom
+    window over a document sits mid-left, not in a corner, and the screen-only
+    layout shrank both into a 1080px-wide strip (Ty Myers tutorial,
+    6-oct-2026). What still rules a subject out: being big (that is the shot,
+    not an overlay) or moving between samples.
+    """
+    import cv2
+    import numpy as np
+    import main as m
+    import screencast_layout
+
+    if end_f - 1 < start_f:
+        return None
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        return None
+    frame_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    frame_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    boxes = []
+    try:
+        for f_idx in np.linspace(start_f, end_f - 1, samples):
+            cap.set(cv2.CAP_PROP_POS_FRAMES, int(round(f_idx)))
+            ok, frame = cap.read()
+            if not ok:
+                continue
+            faces = screencast_layout.detect_faces_full_res(frame)
+            if faces:
+                box = max(faces, key=lambda c: c['score'])['box']
+                widen = OVERLAY_FACE_WIDTHS
+            else:
+                box = m.detect_person_yolo(frame)
+                widen = INSET_PADDING
+            if not box or box[3] > frame_h * MAX_SUBJECT_HEIGHT:
+                continue
+            boxes.append(overlay_box(box, frame_w, frame_h, widen))
+    finally:
+        cap.release()
+    need = samples // 2 + 1
+    if len(boxes) < need:
+        return None
+    return stable_box(boxes, frame_w, frame_h, min_agree=need)
+
+
+def _centre_inside(det, box, slack):
+    cx = det[0] + det[2] / 2.0
+    cy = det[1] + det[3] / 2.0
+    x, y, w, h = box
+    return (x - slack <= cx <= x + w + slack) and (y - slack <= cy <= y + h + slack)
+
+
+def present_in_scene(video_path, box, start_f, end_f, samples=3):
+    """Whether the webcam really sits in ``box`` during this scene.
+
+    ``detect`` finds the box once per clip, from samples spread over every
+    scene, and a clip cut from a tutorial mixes shots: the bubble is in the
+    corner during the screen recording and gone in the editor shot next to it.
+    Before this check every screen scene of a clip with an inset anywhere got
+    the INSET layout, and on a scene without the camera the bottom band was an
+    enlarged crop of a toolbar (measured on a Canva + QuickTime tutorial,
+    6-oct-2026). A face or a person whose centre falls in the box in most
+    samples is the answer.
+    """
+    import cv2
+    import numpy as np
+    import main as m
+    import screencast_layout
+
+    if end_f - 1 < start_f:
+        return False
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        return False
+    slack = max(box[2], box[3]) * 0.1
+    hits = 0
+    try:
+        for f_idx in np.linspace(start_f, end_f - 1, samples):
+            cap.set(cv2.CAP_PROP_POS_FRAMES, int(round(f_idx)))
+            ok, frame = cap.read()
+            if not ok:
+                continue
+            dets = [c['box'] for c in screencast_layout.detect_faces_full_res(frame)]
+            if not any(_centre_inside(d, box, slack) for d in dets):
+                person = m.detect_person_yolo(frame)
+                dets = [person] if person else []
+            if any(_centre_inside(d, box, slack) for d in dets):
+                hits += 1
+    finally:
+        cap.release()
+    return hits * 2 > samples
 
 
 MAX_CAMERA_RATIO = 0.40

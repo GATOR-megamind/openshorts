@@ -171,57 +171,50 @@ confidence is 0..1. why is at most 12 words.
 """
 
 
-class WideContentRangeModel(BaseModel):
-    start: float
-    end: float
-    what: str
-    width_fraction: float
+class ShotContentModel(BaseModel):
+    shot: int
+    kind: str
+    focus_left: float
+    focus_right: float
 
 
-class WideContentResponse(BaseModel):
-    ranges: List[WideContentRangeModel]
+class ShotContentResponse(BaseModel):
+    shots: List[ShotContentModel]
 
 
-WIDE_CONTENT_PROMPT_TEMPLATE = """
-You are preparing a landscape video to be re-framed to a vertical 9:16 crop.
-The crop keeps a tall centre strip and THROWS AWAY the left and right sides.
+# One still per SHOT of a clip, asked as a closed choice (same lesson as
+# LAYOUT_CHOICE_PROMPT: a decision between named options is stable, a free
+# measurement is not). It replaced a whole-video prompt that asked for time
+# ranges and a width_fraction: that one uploaded the source (a 37-min 1440p
+# tutorial is ~670k tokens and a GB-sized upload to get a few numbers back) and
+# was never actually called by the pipeline. The focus box is the one number
+# still asked for, and it only positions a crop: being 10% off moves the window
+# a little, it never changes which layout a shot gets.
+SHOT_CONTENT_PROMPT = """
+Each image is one shot from the same landscape video, in order, numbered from 0.
+The video is being re-framed to a vertical 9:16 clip, and the person who uploaded
+it told us it is a screen-based video (a tutorial, a demo, slides).
 
-List every time range where on-screen content would be cut by that, and for each
-one report HOW MUCH OF THE FRAME WIDTH the content spans.
+For EVERY image return one entry with its shot number and a kind:
 
-width_fraction is the single most important field. Measure the content's own
-horizontal extent, from its left edge to its right edge, as a fraction of the
-full frame width:
-- a spreadsheet, slide, screen recording or map filling the picture: 0.9 - 1.0
-- a chart or diagram beside a speaker: 0.4 - 0.7
-- a lower-third or headline strip across the bottom: 0.6 - 0.9
-- a logo, channel bug, score counter or subscriber count in a corner: 0.1 - 0.2
-- subtitles centred at the bottom: 0.3 - 0.5
+- "screen": a screen recording, app window, web page, document, spreadsheet,
+  slide or code editor fills most of the picture. A webcam bubble or small video
+  of the presenter laid over it still makes it "screen". So does a person who
+  only appears INSIDE the app (a video being edited, a webcam preview on a page).
+- "beside": a chart, slide or screen takes part of the picture and a person
+  filmed by a camera stands or sits beside it, each in their own area.
+- "camera": camera footage. A person talking to the camera, people, a room,
+  b-roll, products, landscapes. Logos, lower-thirds, subtitles or a title card
+  over camera footage are still "camera".
 
-Report what you actually see. Do NOT inflate the number to make a range seem
-worth reporting, and do NOT leave out corner graphics — report them with their
-true small width_fraction. A range reported honestly at 0.15 is useful; the same
-range reported at 0.9 makes the video worse.
-
-COUNT a range when the frame shows:
-- a screen recording, slide, spreadsheet, chart, graph or map
-- headlines, labels, statistics or comparison tables burned into the picture
-- a side-by-side or split-screen layout
-- any diagram or product shot where the edges carry the meaning
-
-DO NOT count an ordinary talking head, even against a busy background, and do
-not count b-roll, landscapes, crowds or action footage with no graphics.
-
-TIME CONTRACT — STRICT:
-- ABSOLUTE SECONDS from the start, numbers only, up to 3 decimals.
-- 0 <= start < end <= {video_duration}.
-- Merge ranges that are less than 1 second apart.
-- Return an EMPTY list if the video never shows such content. An empty list is
-  the correct, expected answer for most talking-head and b-roll videos — do not
-  invent ranges to seem useful.
-
-For "what", name the content in three words or fewer (e.g. "stock chart",
-"spreadsheet", "corner ticker").
+focus_left and focus_right (0..1, fractions of the image width) bound the part
+of the picture a viewer must READ to follow the shot: the document page, the
+web page column, the canvas, the active window or code. Include any webcam
+bubble or video of the presenter laid over the screen, and any text paragraph
+in full: the box must not cut a face or a line of text. Leave out toolbars, side
+panels, browser tabs, docks, desktop wallpaper and empty margins. If the whole
+width matters (a full spreadsheet, a full-width slide) answer 0 and 1. For
+"camera" answer 0 and 1.
 """
 
 

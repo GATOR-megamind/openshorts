@@ -89,12 +89,31 @@ width, so an explicit GENERAL override on a portrait clip cannot shrink it.
   `recut.perform_recut`). Only the ASS path can do this; SRT burns keep one
   alignment for the whole file.
 - **SCREENCAST / WIDE** (`screencast_layout.py`, `SCREENCAST_LAYOUT=1`): for
-  scenes whose meaning lives outside the centre. Gemini reports each range's
-  **width_fraction**, and that is the gate (coverage did not separate a
-  spreadsheet from a corner ticker; width does). Content narrower than 0.5 moves
-  nothing. Between 0.5 and 0.85 SCREENCAST stacks it over the presenter. Above
-  0.85 the presenter is composited on top of the content and stacking would show
-  it twice, so those scenes get WIDE: the GENERAL layout with side-cropping off.
+  scenes whose meaning lives outside the centre. **Until 6-oct-2026 nothing
+  asked which scenes those were**: the flag was set (by `layouts=["screencast"]`
+  or the picker) but `reframe_v2.render` never got any content ranges, so every
+  screen tutorial rendered GENERAL/TRACK, even when forced. Now each clip asks
+  (`reframe_v2.screen_ranges` → `screencast_layout.detect_content_ranges`): one
+  1024px still per shot, one Gemini call per clip, a closed choice per shot
+  (`screen` / `beside` / `camera`, `gemini_worker.SHOT_CONTENT_PROMPT`) plus the
+  horizontal **reading area** of a screen. `camera` shots keep the face
+  classifier's verdict. `beside` (width 0.7) stacks the content over the
+  presenter as SCREENCAST. `screen` (width 1.0: the presenter, if any, is
+  composited on top of it, and stacking would show it twice) gets WIDE, cropped
+  to the reading area when that is narrower than 90% of the frame
+  (`focus_crop`, never past 60% of the output height, full source height kept);
+  otherwise the whole width. If the check cannot answer (no key, API error) the
+  scenes the classifier sent to GENERAL are taken as the screen
+  (`fallback_ranges`), so an explicit choice never silently renders GENERAL. One
+  still per scene means a long scene that mixes screen and camera is judged by
+  its middle frame. A `screen` scene with the presenter's camera floating over
+  it (a QuickTime/Loom window mid-screen, not only in a corner) becomes INSET
+  with a box centred on that face (`camera_inset.detect_in_scene`: small,
+  still across 5 samples); the clip-wide corner inset is applied only to the
+  scenes where a face actually sits in its box (`present_in_scene`), since a
+  tutorial clip mixes shots with and without it. The old whole-video detector (time ranges + width_fraction)
+  was never called in production and is gone: it uploaded the source, ~670k
+  tokens for a 37-min tutorial.
 - **INSET** (`camera_inset.py`): full-width screen on top, the enlarged webcam
   box below, for a single source with the camera composited in a corner (OBS,
   stream VODs). Chained after the `screencast` decision, **not** asked of Gemini

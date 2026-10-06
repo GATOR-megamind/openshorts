@@ -25,12 +25,15 @@ What is different here is the question asked and what the answer is used for.
     counter. Here the worst case is showing the content full width above the
     speaker, which is a reasonable frame even when the trigger was wrong.
 
-Off by default (``SCREENCAST_LAYOUT=1``). Needs GEMINI_API_KEY; without one it
-is a silent no-op, like every other optional Gemini path here.
+Off by default (``SCREENCAST_LAYOUT=1``, set per job by ``layouts=["screencast"]``
+or by the layout picker). Which shots show a screen is asked of Gemini per clip
+(``detect_content_ranges``, one still per shot); without an answer the scenes
+the face classifier sent to GENERAL are taken as the screen (``fallback_ranges``),
+because the job was declared a screencast and GENERAL is the one layout that
+shrinks a screen into an unreadable strip.
 """
 import json
 import os
-import time
 
 import numpy as np
 
@@ -155,113 +158,267 @@ def overlapping_width(scene_start, scene_end, ranges):
 
     0.0 when the scene overlaps nothing, which leaves its routing untouched.
     """
-    widest = 0.0
+    return overlapping_range(scene_start, scene_end, ranges)[0]
+
+
+def overlapping_range(scene_start, scene_end, ranges):
+    """(width_fraction, focus) of the widest range the scene overlaps.
+
+    ``focus`` is the (left, right) reading area a range carries as its fifth
+    element, or None. (0.0, None) when the scene overlaps nothing.
+    """
+    widest, focus = 0.0, None
     for r in ranges:
         start, end = r[0], r[1]
         width = r[3] if len(r) > 3 else 1.0
         if min(scene_end, end) - max(scene_start, start) > MIN_OVERLAP_SECONDS:
-            widest = max(widest, width)
-    return widest
+            if width > widest:
+                widest = width
+                focus = r[4] if len(r) > 4 else None
+    return widest, focus
 
 
-def detect_content_ranges(video_path, video_duration):
-    """Time ranges where on-screen content spans most of the frame width.
+# --- which shots show a screen ------------------------------------------------
+#
+# Until 6-oct-2026 nothing called the detector: SCREENCAST_LAYOUT=1 (a user's
+# explicit `layouts=["screencast"]`, or the layout picker's "screencast") only
+# flipped ENABLED, reframe_v2.render was never handed any content ranges, and
+# every scene of a screen tutorial went through the face classifier like any
+# other video. A face-less screen came out of that as GENERAL (the desktop
+# shrunk into a strip over a blurred copy of itself), a face that only appears
+# inside the app as TRACK (a centre crop through the middle of the screen).
+#
+# The detector this module used to carry uploaded the whole SOURCE to Gemini
+# and asked for time ranges. That cannot be wired into a job as it was: a
+# 37-min 1440p tutorial is ~670k tokens and a GB-sized upload, per job, to get
+# back a handful of numbers. This asks per CLIP instead, with one still per
+# shot, which is the layout picker's recipe (frames at 1024px, a closed choice)
+# and lines the answer up with the scenes the renderer routes, with no
+# timestamps for the model to get wrong.
 
-    Returns (start, end, what, width_fraction) tuples, or [] on any failure:
-    a missing answer must degrade to today's routing rather than break the job.
+# Kinds the shot prompt may answer, and the width each one routes as. A screen
+# fills the frame, so it lands past STACK_MAX_WIDTH_FRACTION (WIDE or INSET); a
+# chart beside a person sits between the two gates (SCREENCAST stacking).
+KIND_WIDTH = {"screen": 1.0, "beside": 0.7}
+
+# Stills per clip. One per shot; past this the longest shots are asked and the
+# rest borrow the answer of the nearest asked shot.
+MAX_SHOTS = int(os.environ.get("SCREENCAST_MAX_SHOTS", "24"))
+SHOT_SAMPLE_WIDTH = 1024
+
+# The reading area is cropped out of the screen when it is narrower than this
+# (fraction of the frame width, after padding). Wider than that a crop only
+# trims chrome while costing columns that may matter: show the whole screen.
+FOCUS_MAX_WIDTH = 0.9
+FOCUS_PADDING = 0.04
+
+# The cropped screen may fill at most this share of the output height. It sets
+# the narrowest crop allowed (about half of a 16:9 screen in a 9:16 frame), so a
+# tight focus box never becomes a smear of upscaled pixels.
+FOCUS_MAX_HEIGHT_RATIO = 0.6
+
+
+def _parse_shots(raw, n):
+    """The model's answer as {position: (kind, focus)}; junk is dropped."""
+    out = {}
+    for item in raw or []:
+        try:
+            idx = int(item.get("shot"))
+            kind = str(item.get("kind", "")).strip().lower()
+            left = float(item.get("focus_left", 0.0))
+            right = float(item.get("focus_right", 1.0))
+        except (AttributeError, TypeError, ValueError):
+            continue
+        if not 0 <= idx < n or kind not in ("screen", "beside", "camera"):
+            continue
+        left, right = max(0.0, min(left, 1.0)), max(0.0, min(right, 1.0))
+        out[idx] = (kind, (left, right) if right - left >= 0.05 else None)
+    return out
+
+
+def shots_to_ask(scenes, limit=None):
+    """Indices of the scenes to sample, the longest ones when there are too many."""
+    limit = limit or MAX_SHOTS
+    order = list(range(len(scenes)))
+    if len(order) <= limit:
+        return order
+
+    def length(i):
+        return scenes[i][1].get_frames() - scenes[i][0].get_frames()
+    return sorted(sorted(order, key=length, reverse=True)[:limit])
+
+
+def ranges_from_verdicts(scenes, fps, verdicts):
+    """Content ranges (start_s, end_s, kind, width, focus) in the clip timeline.
+
+    ``verdicts`` maps scene index -> (kind, focus). A scene that was not asked
+    takes the verdict of the nearest asked one.
+    """
+    asked = sorted(verdicts)
+    if not asked:
+        return []
+    ranges = []
+    for i, (start, end) in enumerate(scenes):
+        src = i if i in verdicts else min(asked, key=lambda a: abs(a - i))
+        kind, focus = verdicts[src]
+        width = KIND_WIDTH.get(kind)
+        if not width:
+            continue
+        ranges.append((start.get_frames() / fps, end.get_frames() / fps,
+                       kind, width, focus))
+    return ranges
+
+
+def _shot_frames(video_path, scenes, indices):
+    """JPEG bytes of each asked scene's middle frame (None where unreadable)."""
+    import cv2
+    import frame_sampler
+    from layout_picker import _encode_frame
+
+    mids = [(scenes[i][0].get_frames() + scenes[i][1].get_frames()) // 2
+            for i in indices]
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        return []
+    try:
+        frames = list(frame_sampler.read_at(cap, mids))
+    finally:
+        cap.release()
+    return [_encode_frame(f, SHOT_SAMPLE_WIDTH) if f is not None else None
+            for f in frames]
+
+
+def detect_content_ranges(video_path, scenes, fps):
+    """Which of this clip's shots show a screen, and where its reading area is.
+
+    Returns a list of (start_s, end_s, kind, width_fraction, focus), [] when no
+    shot shows one or the module is off, or None when the question could not be
+    asked or answered (no key, no frames, an API error). Callers must treat None
+    differently from []: the user asked for this layout, so a failed check must
+    not quietly hand the clip back to the face classifier (see fallback_ranges).
     """
     if not ENABLED:
         return []
+    if not scenes:
+        return None
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        return []
-
-    from google import genai
-    from google.genai import types as genai_types
-    import gemini_worker
+        print("   ⚠️ Screen check needs GEMINI_API_KEY.")
+        return None
 
     model_name = os.environ.get("GEMINI_MODEL") or 'gemini-3.1-flash-lite'
-    print("🔎 Checking for full-width on-screen content…")
-    # This is the ONE stage that sends the whole video file to Google rather
-    # than a handful of frames, so it is also the one that leaves a copy of a
-    # user's source on someone else's servers. The Files API keeps an upload for
-    # 48 h unless it is deleted; the finally block below deletes it as soon as
-    # the answer is back, which is what makes "we do not leave your video with
-    # the model provider" a true sentence in the privacy policy.
-    client = None
-    file_upload = None
+    asked = shots_to_ask(scenes)
+    print(f"   🔎 Screen check on {len(asked)} shot(s)…")
     try:
-        client = genai.Client(api_key=api_key)
-        file_upload = gemini_worker.upload_media(client, video_path)
-        deadline = time.time() + 180
-        while True:
-            info = client.files.get(name=file_upload.name)
-            state = str(getattr(getattr(info, "state", info), "name", "")).upper()
-            if state == "ACTIVE":
-                break
-            if state == "FAILED" or time.time() > deadline:
-                print("   ⚠️ Upload not usable — keeping face-only routing.")
-                return []
-            time.sleep(2)
+        from google import genai
+        from google.genai import types as genai_types
+        import gemini_worker
 
+        frames = _shot_frames(video_path, scenes, asked)
+        keep = [(i, jpg) for i, jpg in zip(asked, frames) if jpg]
+        if not keep:
+            print("   ⚠️ No readable frames for the screen check.")
+            return None
+        parts = []
+        for n, (_, jpg) in enumerate(keep):
+            parts.append(f"Shot {n}:")
+            parts.append(genai_types.Part.from_bytes(data=jpg, mime_type="image/jpeg"))
+        client = genai.Client(api_key=api_key)
         response = client.models.generate_content(
             model=model_name,
-            contents=[file_upload,
-                      gemini_worker.WIDE_CONTENT_PROMPT_TEMPLATE.format(
-                          video_duration=video_duration)],
+            contents=parts + [gemini_worker.SHOT_CONTENT_PROMPT],
             config=genai_types.GenerateContentConfig(
                 response_mime_type="application/json",
-                response_schema=gemini_worker.WideContentResponse,
+                response_schema=gemini_worker.ShotContentResponse,
             ))
         gemini_worker.raise_if_blocked(response)
-        raw = (json.loads(response.text) or {}).get("ranges") or []
+        raw = (json.loads(response.text) or {}).get("shots") or []
     except Exception as e:
-        print(f"   ⚠️ On-screen check failed ({e}) — keeping face-only routing.")
-        return []
-    finally:
-        # Every exit path, including the two early returns above and the failure
-        # branch: a video left behind because the call raised is exactly the
-        # copy nobody would ever notice.
-        if client is not None and file_upload is not None:
-            try:
-                client.files.delete(name=file_upload.name)
-            except Exception as e:
-                print(f"   ⚠️ Could not delete the uploaded source from Gemini "
-                      f"Files ({e}) — it expires there in 48 h.")
+        print(f"   ⚠️ Screen check failed ({e}).")
+        return None
 
-    ranges = []
-    for r in raw:
-        try:
-            s = max(0.0, float(r.get("start", 0)))
-            e = min(float(video_duration), float(r.get("end", 0)))
-            width = float(r.get("width_fraction", 0))
-        except (TypeError, ValueError):
-            continue
-        # The width gate is the whole point: everything narrower survives a 9:16
-        # crop and must not move a single scene.
-        if e - s >= 0.5 and width >= MIN_WIDTH_FRACTION:
-            ranges.append((s, e, str(r.get("what", ""))[:40], width))
-    ranges.sort()
+    by_position = _parse_shots(raw, len(keep))
+    if not by_position:
+        print("   ⚠️ Screen check returned nothing usable.")
+        return None
+    verdicts = {keep[n][0]: v for n, v in by_position.items()}
+    print("   📊 Shots: " + ", ".join(
+        f"{i}={k}" + (f"[{f[0]:.2f}-{f[1]:.2f}]" if f and k != "camera" else "")
+        for i, (k, f) in sorted(verdicts.items())))
+    return ranges_from_verdicts(scenes, fps, verdicts)
 
-    if ranges:
-        print("   📊 " + ", ".join(
-            f"{w}@{s:.0f}-{e:.0f}s ({frac:.0%} wide)"
-            for s, e, w, frac in ranges[:5]))
-    else:
-        print("   ✅ No full-width content — routing unchanged.")
-    return ranges
+
+def fallback_ranges(scenes, strategies, fps):
+    """Ranges to use when the screen check failed on a screencast job.
+
+    The user (or the layout picker) said this video is built around a screen,
+    so a scene the face classifier found no subject in is the screen: it gets
+    the full-width layout instead of GENERAL's side crop. Scenes with a face
+    keep the classifier's verdict.
+    """
+    out = []
+    for (start, end), strategy in zip(scenes, strategies):
+        if strategy == 'GENERAL':
+            out.append((start.get_frames() / fps, end.get_frames() / fps,
+                        "screen", 1.0, None))
+    return out
+
+
+def focus_crop(orig_w, orig_h, out_w, out_h, focus):
+    """(x, w) of the source columns to show for a screen shot, or None.
+
+    None means show the whole width (no focus, or one so wide that a crop would
+    only trim chrome). Otherwise the reading area plus a little padding, never
+    narrower than the crop that fills FOCUS_MAX_HEIGHT_RATIO of the output.
+    """
+    if not focus:
+        return None
+    left = max(0.0, focus[0] - FOCUS_PADDING)
+    right = min(1.0, focus[1] + FOCUS_PADDING)
+    if right <= left or right - left >= FOCUS_MAX_WIDTH:
+        return None
+    min_w = out_w * orig_h / (FOCUS_MAX_HEIGHT_RATIO * out_h)
+    crop_w = min(orig_w, int(round(max((right - left) * orig_w, min_w))))
+    crop_w -= crop_w % 2
+    if crop_w >= orig_w * FOCUS_MAX_WIDTH:
+        return None
+    x = int(round((left + right) / 2.0 * orig_w - crop_w / 2.0))
+    x = max(0, min(x, orig_w - crop_w))
+    return x - (x % 2), crop_w
+
+
+def focus_filtergraph(orig_w, orig_h, out_w, out_h, crop):
+    """A screen shot cut down to its reading area, over a blurred backdrop.
+
+    ``crop`` is focus_crop()'s (x, w). Those columns are scaled to the full
+    output width at the full source height: a document or a web page reads top
+    to bottom, so nothing is cut vertically, and the text comes out up to ~1.6x
+    the size it has when the whole 16:9 screen is squeezed into 1080px.
+    """
+    from ffmpeg_utils import blurred_backdrop
+
+    x, w = crop
+    fg_h = min(out_h, int(round(out_w * orig_h / float(w))))
+    fg_h -= fg_h % 2
+    return (
+        f"[0:v]split=2[bga][fga];"
+        f"[bga]{blurred_backdrop(out_w, out_h, 12)}[bg];"
+        f"[fga]crop=w={w}:h={orig_h}:x={x}:y=0,scale={out_w}:{fg_h}[fg];"
+        f"[bg][fg]overlay=x=0:y=(H-h)/2,setsar=1[v]"
+    )
 
 
 def detect_screencast_scenes(video_path, scenes, strategies, ranges, samples=6):
     """Route scenes that show wide on-screen content.
 
-    Returns ``{scene_index: ('SCREENCAST', centre) | ('WIDE', None)}``:
+    Returns ``{scene_index: ('SCREENCAST', centre) | ('WIDE', focus)}``:
 
       - SCREENCAST stacks the content over the presenter, for content that
         leaves room beside itself (width below STACK_MAX_WIDTH_FRACTION) and
         where a presenter is actually found.
-      - WIDE is the blurred layout with side-cropping disabled, for content that
-        fills the frame, or that has no presenter to stack.
+      - WIDE shows the screen without GENERAL's side crop, for content that
+        fills the frame or has no presenter to stack. ``focus`` is the reading
+        area (left, right) when the shot check found one, else None.
     """
     if not ENABLED or not ranges:
         return {}
@@ -282,16 +439,15 @@ def detect_screencast_scenes(video_path, scenes, strategies, ranges, samples=6):
     try:
         for i, (start, end) in enumerate(scenes):
             s_f, e_f = start.get_frames(), end.get_frames()
-            width = overlapping_width(s_f / fps, e_f / fps, ranges)
+            width, focus = overlapping_range(s_f / fps, e_f / fps, ranges)
             if not width:
                 continue
 
             # Content that fills the frame has the presenter on top of it, so
             # there is nothing to stack — just stop cropping the sides.
             if width > STACK_MAX_WIDTH_FRACTION:
-                found[i] = ('WIDE', None)
+                found[i] = ('WIDE', focus)
                 continue
-
             last_f = e_f - 1
             if total_frames:
                 last_f = min(last_f, total_frames - 1)
@@ -323,7 +479,7 @@ def detect_screencast_scenes(video_path, scenes, strategies, ranges, samples=6):
             # weaker signal than this means there is no presenter to stack, and
             # the content still deserves its full width.
             if len(centres) < samples / 2.0:
-                found[i] = ('WIDE', None)
+                found[i] = ('WIDE', focus)
                 continue
 
             found[i] = ('SCREENCAST',

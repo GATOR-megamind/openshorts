@@ -340,13 +340,33 @@ def _run(cmd):
                    stderr=subprocess.PIPE, timeout=1800)
 
 
+def screen_ranges(input_video, scenes, fps, strategies):
+    """Which stretches of this clip show a screen, for a screencast job.
+
+    This call is what SCREENCAST_LAYOUT=1 was missing until 6-oct-2026: the
+    flag was set (by ``layouts=["screencast"]`` or the layout picker) and
+    nothing ever asked for the ranges, so every screen shot fell through to the
+    face classifier's TRACK/GENERAL. When the shot check cannot answer, the
+    scenes the classifier sent to GENERAL are taken as the screen: the job was
+    declared a screencast, and an explicit choice must not silently render
+    the blurred-strip layout it was chosen to avoid.
+    """
+    ranges = screencast_layout.detect_content_ranges(input_video, scenes, fps)
+    if ranges is None:
+        ranges = screencast_layout.fallback_ranges(scenes, strategies, fps)
+        print(f"   🖥️ Screen check unavailable — {len(ranges)} face-less "
+              f"scene(s) treated as the screen")
+    return ranges
+
+
 def render(input_video, final_output_video, aspect_ratio, content_ranges=None,
            force_strategy=None, crop_overrides=None, watermark=False):
     """Full v2 reframe of one clip. Raises on failure (caller falls back).
 
-    ``content_ranges`` comes from screencast_layout.detect_content_ranges() on
-    the SOURCE video, already translated into this clip's timeline. None or []
-    means the layout never triggers, which is the default.
+    ``content_ranges`` pins which stretches (in this clip's timeline) show a
+    screen, in screencast_layout's range shape. Left empty, the clip asks for
+    them itself whenever the screencast layout is on for the job
+    (``screen_ranges``); with the layout off nothing triggers, the default.
 
     ``force_strategy`` ('WIDE' / 'TRACK' / any layout the render loop knows)
     applies that layout to EVERY scene, skipping the classifier and the layout
@@ -398,6 +418,8 @@ def render(input_video, final_output_video, aspect_ratio, content_ranges=None,
               f"passing it through, no reframe")
     else:
         strategies = m.analyze_scenes_strategy(input_video, scenes)
+        if not content_ranges and screencast_layout.ENABLED:
+            content_ranges = screen_ranges(input_video, scenes, fps, strategies)
 
     # SPLIT is an upgrade applied on top of the TRACK/GENERAL verdict, keyed by
     # the scene's START FRAME rather than its index: scene_frame_ranges() drops
@@ -456,24 +478,42 @@ def render(input_video, final_output_video, aspect_ratio, content_ranges=None,
             print(f"   📹 Webcam inset at {inset}")
 
     screencasts = {}
+    focus_crops = {}
+    insets = {}
     wide_count = 0
     inset_count = 0
     if content_ranges:
         for scene_idx, (plan, centre) in screencast_layout.detect_screencast_scenes(
                 input_video, scenes, strategies, content_ranges).items():
             # An inset beats both screen plans: it is the only one that can show
-            # the screen whole AND the person at a readable size.
-            if inset:
+            # the screen whole AND the person at a readable size. But only on
+            # the scenes the camera is actually in: the box is found once per
+            # clip, and a tutorial clip mixes shots with and without it.
+            start_f, end_f = scene_boundaries[scene_idx]
+            box = None
+            if inset and camera_inset.present_in_scene(
+                    input_video, inset, start_f, end_f):
+                box = inset
+            elif plan == 'WIDE':
+                # A full screen with the presenter's camera floating over it
+                # anywhere, not only in a corner: show it below, enlarged,
+                # instead of leaving it a thumbnail inside the screen.
+                box = camera_inset.detect_in_scene(input_video, start_f, end_f)
+            if box:
                 plan, centre = 'INSET', None
             strategies[scene_idx] = plan
-            start_f = scene_boundaries[scene_idx][0]
             splits.pop(start_f, None)
             if plan == 'SCREENCAST':
                 screencasts[start_f] = centre
             elif plan == 'INSET':
+                insets[start_f] = box
                 inset_count += 1
             else:
                 wide_count += 1
+                crop = screencast_layout.focus_crop(
+                    orig_w, orig_h, out_w, out_h, centre)
+                if crop:
+                    focus_crops[start_f] = crop
     if screencasts:
         print(f"   🖥️ SCREENCAST layout on {len(screencasts)} scene(s)")
     if wide_count:
@@ -540,10 +580,13 @@ def render(input_video, final_output_video, aspect_ratio, content_ranges=None,
 
             if strategy == 'INSET':
                 graph = camera_inset.inset_filtergraph(
-                    orig_w, orig_h, out_w, out_h, inset)
+                    orig_w, orig_h, out_w, out_h, insets.get(start_f, inset))
             elif strategy == 'SCREENCAST':
                 graph = screencast_layout.screencast_filtergraph(
                     orig_w, orig_h, out_w, out_h, screencasts[start_f])
+            elif strategy == 'WIDE' and start_f in focus_crops:
+                graph = screencast_layout.focus_filtergraph(
+                    orig_w, orig_h, out_w, out_h, focus_crops[start_f])
             elif strategy == 'WIDE':
                 graph = general_filtergraph(
                     out_w, out_h,

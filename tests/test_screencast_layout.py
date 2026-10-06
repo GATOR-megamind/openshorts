@@ -98,7 +98,7 @@ class TestScreencastFiltergraph:
 class TestGating:
     def test_disabled_module_detects_nothing(self, monkeypatch):
         monkeypatch.setattr(screencast_layout, "ENABLED", False)
-        assert screencast_layout.detect_content_ranges("x.mp4", 10) == []
+        assert screencast_layout.detect_content_ranges("x.mp4", [], 30.0) == []
 
     def test_no_ranges_means_no_scenes_touched(self, monkeypatch):
         monkeypatch.setattr(screencast_layout, "ENABLED", True)
