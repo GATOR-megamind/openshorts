@@ -79,7 +79,7 @@ it takes a long video, finds the segments worth clipping, cuts them, reframes
 them to 9:16 and burns in subtitles. ${
   c.rows?.['AI voice dubbing, 30+ languages']
     ? `Where it goes further is the clipping itself: two speakers stacked when both are on camera, screen recordings kept readable over the presenter, and a webcam inset enlarged instead of cropped out.`
-    : `It adds two things ${esc(c.name)} does not have, AI voice dubbing into more than 30 languages and an AI UGC generator with lip-synced actors.`
+    : `It adds two things ${esc(c.name)} does not have, AI voice dubbing into more than 30 languages (with your own ElevenLabs key) and an AI UGC generator with lip-synced actors.`
 } The caveat is that the free edition is self-hosted, which
 means Docker and a machine to run it on. If you want a hosted product with no
 setup, that is OpenShorts Cloud, and it is a paid service above 20 minutes a month.</p>
@@ -145,7 +145,7 @@ ${sources([
     facts: c.facts,
     tldr: c.tldr || [
       `OpenShorts is an open source AI clip generator you can run yourself for free, or use hosted from $12/month. ${esc(c.name)} is a closed-source cloud product starting at ${esc(c.entryPrice)}.`,
-      `Both find viral moments in long video and reframe them to 9:16 with face tracking. ${c.rows?.['AI voice dubbing, 30+ languages'] ? 'OpenShorts adds two-speaker, screencast and webcam-inset layouts and AI UGC video with lip-synced actors.' : 'OpenShorts adds dubbing into 30+ languages and AI UGC video with lip-synced actors.'}${c.edge ? ` ${esc(c.edge)}` : ''}`,
+      `Both find viral moments in long video and reframe them to 9:16 with face tracking. ${c.rows?.['AI voice dubbing, 30+ languages'] ? 'OpenShorts adds two-speaker, screencast and webcam-inset layouts and AI UGC video with lip-synced actors.' : 'OpenShorts adds dubbing into 30+ languages (with your own ElevenLabs key) and AI UGC video with lip-synced actors.'}${c.edge ? ` ${esc(c.edge)}` : ''}`,
       `Pick ${esc(c.name)} if you want zero setup and nothing else matters. Pick OpenShorts if you want to self-host for privacy, keep costs near zero, or change how the pipeline behaves.`,
     ],
     body,
@@ -496,7 +496,7 @@ ${faqBlock([
   },
   {
     q: 'Can it dub clips into other languages?',
-    a: 'Yes, into more than 30 languages via ElevenLabs, preserving the original speaker\'s voice characteristics. The dubbed audio is then re-transcribed so the burned-in subtitles match the new language rather than the original.',
+    a: 'Yes, with your own ElevenLabs API key, into more than 30 languages, preserving the original speaker\'s voice characteristics. The dubbed audio is then re-transcribed so the burned-in subtitles match the new language rather than the original.',
   },
 ])}
 `,
@@ -663,7 +663,7 @@ are about), and pretending otherwise would not survive one GitHub search. The no
 <p>Where OpenShorts differs from all of them is surface area: a web dashboard, a
 REST API with keys, completion webhooks, an MCP server for agents, split-screen
 and screencast layouts for two-person and screen-share footage, dubbing into 30+
-languages, and direct publishing to TikTok, Instagram Reels and YouTube Shorts.
+languages with your own ElevenLabs key, and direct publishing to TikTok, Instagram Reels and YouTube Shorts.
 If you want a small script you can read in an hour, the smaller repos are a
 better fit, and that is a real recommendation rather than false modesty.</p>
 
@@ -1729,7 +1729,7 @@ const OPUS_AI_FAQ = [
   },
   {
     q: 'Does Opus AI have an open source alternative?',
-    a: 'Yes. OpenShorts is MIT-licensed, self-hostable with Docker, and covers the same core job: AI moment detection, face-tracked 9:16 reframing and word-level burned-in subtitles, plus dubbing into 30+ languages.',
+    a: 'Yes. OpenShorts is MIT-licensed, self-hostable with Docker, and covers the same core job: AI moment detection, face-tracked 9:16 reframing and word-level burned-in subtitles, plus dubbing into 30+ languages with your own ElevenLabs key.',
   },
 ]
 

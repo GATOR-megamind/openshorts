@@ -4,7 +4,7 @@ import PricingSection from './components/PricingSection';
 import { useAuth } from './contexts/AuthContext';
 import './landing.css';
 
-const APPARATUS_CALLOUTS = ['RATIO · 9:16', 'CLIPS · 3–15', 'DUB · 30+ LANGS', 'SUBS · WORD-LEVEL'];
+const APPARATUS_CALLOUTS = ['RATIO · 9:16', 'CLIPS · 3–15', 'HOOK · AUTO', 'SUBS · WORD-LEVEL'];
 
 // Real clips OpenShorts made from Creative Commons (CC BY) sources. `video` is
 // the original and the clip side by side, in sync; `vertical` is the clip on
@@ -300,7 +300,7 @@ export default function Landing({ onLaunchApp }) {
     {
       icon: Languages,
       title: "AI Voice Dubbing in 30+ Languages",
-      description: "ElevenLabs AI dubbing translates your audio while preserving the speaker's voice."
+      description: "Bring your own ElevenLabs key and dub a clip into 30+ languages, keeping the speaker's voice. Works in the cloud and self-hosted."
     },
     {
       icon: Type,
@@ -353,7 +353,7 @@ export default function Landing({ onLaunchApp }) {
     { title: "Upload a Long-Form Video", description: "Drop any video file you own — podcasts, webinars, livestreams, interviews." },
     { title: "AI Detects the Best Viral Moments", description: "Google Gemini 3.1 Flash-Lite finds 3-15 high-potential clips of 15-60 seconds." },
     { title: "Smart Cropping to Vertical 9:16", description: "AI reframes to vertical with face tracking — subjects stay centered." },
-    { title: "Add Subtitles, Hooks & Effects", description: "Auto subtitles, hook overlays, AI effects — optionally dub into 30+ languages." },
+    { title: "Add Subtitles, Hooks & Effects", description: "Auto subtitles, hook overlays and AI effects. Optional dubbing with your own ElevenLabs key." },
     { title: "Download or Post to Social Media", description: "Export your clips or post directly to TikTok, Instagram Reels, and YouTube Shorts." }
   ];
 
@@ -396,7 +396,7 @@ export default function Landing({ onLaunchApp }) {
     },
     {
       question: "Can OpenShorts translate and dub videos into other languages?",
-      answer: "Yes. OpenShorts integrates with ElevenLabs AI dubbing to translate your video audio into over 30 languages while preserving the original speaker's voice characteristics. After dubbing, the system automatically re-transcribes the new audio and generates subtitles in the target language. This makes it easy to repurpose content for global audiences — studies show that dubbed content receives 2-3x more engagement in non-English markets."
+      answer: "Yes, with your own ElevenLabs API key, both in the cloud and self-hosted: add the key in Settings and a clip is dubbed into any of 30+ languages while keeping the original speaker's voice. After dubbing, OpenShorts re-transcribes the new audio and burns subtitles in the target language. ElevenLabs bills the dubbing to your key; it is not included in the OpenShorts plans."
     },
     {
       question: "How does the smart vertical cropping work?",
@@ -774,7 +774,7 @@ export default function Landing({ onLaunchApp }) {
                 <ComparisonRow feature="AI Viral Moment Detection" openshorts={checkIcon} opusclip={checkMuted} kapwing={checkMuted} />
                 <ComparisonRow feature="Smart Vertical Cropping" openshorts={checkIcon} opusclip={checkMuted} kapwing={checkMuted} />
                 <ComparisonRow feature="Auto Subtitles" openshorts={checkIcon} opusclip={checkMuted} kapwing={checkMuted} />
-                <ComparisonRow feature="AI Voice Dubbing (30+ langs)" openshorts={checkIcon} opusclip={<span className="text-muted text-sm">Limited</span>} kapwing={<span className="text-muted text-sm">No</span>} />
+                <ComparisonRow feature="AI Voice Dubbing (30+ langs, your ElevenLabs key)" openshorts={checkIcon} opusclip={<span className="text-muted text-sm">Limited</span>} kapwing={<span className="text-muted text-sm">No</span>} />
                 <ComparisonRow feature="AI Video Effects" openshorts={checkIcon} opusclip={<span className="text-muted text-sm">No</span>} kapwing={checkMuted} />
                 <ComparisonRow feature="Hook Text Overlays" openshorts={checkIcon} opusclip={checkMuted} kapwing={checkMuted} />
                 <ComparisonRow feature="Self-Hosted / Privacy" openshorts={checkIcon} opusclip={<span className="text-muted text-sm">Cloud only</span>} kapwing={<span className="text-muted text-sm">Cloud only</span>} />

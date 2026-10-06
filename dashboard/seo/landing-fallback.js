@@ -40,7 +40,7 @@ const FEATURES = [
   ['AI viral moment detection', 'Google Gemini 3.1 Flash-Lite scores the transcript and scene data to find the 3 to 15 strongest moments, so there is no manual scrubbing.'],
   ['Smart 9:16 vertical cropping', 'Dual-mode reframing with MediaPipe face tracking and a YOLOv8 fallback, stabilised so the camera holds still instead of swinging.'],
   ['Word-level automatic subtitles', 'faster-whisper produces a timestamp for every word, and the subtitles are burned in with FFmpeg.'],
-  ['AI voice dubbing in 30+ languages', 'ElevenLabs translates the audio while preserving the speaker\'s voice, then the new track is re-transcribed so subtitles match.'],
+  ['AI voice dubbing in 30+ languages', 'With your own ElevenLabs key, in the cloud or self-hosted: the audio is translated keeping the speaker\'s voice, then re-transcribed so subtitles match.'],
   ['Hook text overlays', 'AI-written hook titles covering the first seconds, which is where a short-form viewer decides whether to stay.'],
   ['AI video effects', 'Gemini-generated FFmpeg filter chains for colour grading, transitions and visual clean-up.'],
   ['Local video upload', 'Podcasts, webinars, livestreams, interviews and vlogs, at full resolution, from a file or a YouTube link.'],
@@ -56,7 +56,7 @@ const STEPS = [
   ['Upload a long-form video', 'Any video you own: podcasts, webinars, livestreams, interviews, or a YouTube link.'],
   ['AI finds the best moments', 'Gemini 3.1 Flash-Lite returns 3 to 15 candidate clips of 15 to 60 seconds each.'],
   ['Smart cropping to vertical 9:16', 'Face-tracked reframing keeps the subject centred without the camera swinging.'],
-  ['Subtitles, hooks and effects', 'Word-level subtitles, an AI hook overlay, optional effects and dubbing into 30+ languages.'],
+  ['Subtitles, hooks and effects', 'Word-level subtitles, an AI hook overlay, optional effects and dubbing into 30+ languages with your own ElevenLabs key.'],
   ['Download or post directly', 'Export the clips or publish straight to TikTok, Instagram Reels and YouTube Shorts.'],
 ]
 
@@ -69,7 +69,7 @@ const FAQ = [
   ['What is OpenShorts and how does it work?', CANONICAL_ANSWERS.whatIsIt + ' ' + CANONICAL_ANSWERS.howItWorks],
   [
     'How does OpenShorts compare to Opus Clip?',
-    'Both do AI viral moment detection and smart vertical cropping. OpenShorts is MIT-licensed and can be self-hosted, so the source video never leaves your machine, and it adds voice dubbing into 30+ languages plus an AI UGC generator with lip-synced actors. Opus Clip is closed source and cloud only, starting at $15/month as of October 2026, and it ships a larger caption-style library. Full comparison at /alternatives/opus-clip.',
+    'Both do AI viral moment detection and smart vertical cropping. OpenShorts is MIT-licensed and can be self-hosted, so the source video never leaves your machine, and it adds voice dubbing into 30+ languages (with your own ElevenLabs key) plus an AI UGC generator with lip-synced actors. Opus Clip is closed source and cloud only, starting at $15/month as of October 2026, and it ships a larger caption-style library. Full comparison at /alternatives/opus-clip.',
   ],
   [
     'How does the smart vertical cropping work?',
@@ -77,7 +77,7 @@ const FAQ = [
   ],
   [
     'Can OpenShorts translate and dub videos?',
-    'Yes, into more than 30 languages through ElevenLabs, preserving the original speaker\'s voice characteristics. After dubbing, the audio is re-transcribed so the burned-in subtitles are in the target language rather than the original.',
+    'Yes, with your own ElevenLabs API key, into more than 30 languages, preserving the original speaker\'s voice characteristics. After dubbing, the audio is re-transcribed so the burned-in subtitles are in the target language rather than the original.',
   ],
   [
     'What is the AI UGC video generator?',

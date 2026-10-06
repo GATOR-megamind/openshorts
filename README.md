@@ -11,6 +11,8 @@
 
 ![Your podcast, and the vertical clip OpenShorts makes of it: both speakers stacked, captions on the seam](screenshots/split-before-after.gif)
 
+<sub>Real OpenShorts output, not a mock-up. Source: [Turn the Tables with Dan and Shoshana Jordan](https://www.youtube.com/watch?v=-KbQj_vboOU), Heritage of Faith, licensed CC BY.</sub>
+
 Two people on camera? OpenShorts stacks them instead of shrinking the wide shot, puts the captions on the seam where they cover nobody, and switches back to a face-tracked crop when the cut goes to one person. The AI picks the layout per video; nothing to configure.
 
 **Two ways to run it, same software either way:**
@@ -85,7 +87,7 @@ All generated videos and avatars are saved to a public gallery with SEO pages fo
 - **Runs fully local if you want**: point `LLM_BASE_URL` at Ollama, LM Studio, vLLM or any OpenAI-compatible server and the moment picker runs on your own model, no Google key needed (see [Run without a Google key](#6-run-without-a-google-key-local-llm-optional))
 - **Smart 9:16 Cropping**: AI reframing per scene — TRACK mode (MediaPipe + YOLOv8 face tracking), GENERAL mode (blurred background), SPLIT mode (two speakers stacked, captions on the seam) and SCREENCAST mode (screen over presenter); the layout is picked per video by Gemini or forced from the dashboard
 - **Auto Subtitles**: faster-whisper with word-level timestamps, styled and burned into clips
-- **AI Voice Dubbing**: ElevenLabs integration for 30+ languages with voice cloning
+- **AI Voice Dubbing**: ElevenLabs integration for 30+ languages with voice cloning (bring your own ElevenLabs key, on the cloud too)
 - **Hook Text Overlays**: AI-generated attention-grabbing text overlays
 - **AI Video Effects**: Gemini-generated FFmpeg filters for professional effects
 
@@ -156,7 +158,7 @@ Videos generated with OpenShorts AI Shorts — no camera, no studio, no actors:
 | **AI clip detection** | Yes | Yes | Yes | Yes | Yes | Yes |
 | **Smart 9:16 reframing** | Yes | Yes | Yes | Yes | Yes | No |
 | **Auto subtitles** | Yes | Yes | Yes | Yes | Yes | Yes |
-| **Voice dubbing (30+ langs)** | Yes | No | Pro only | No | Pro only | Business only |
+| **Voice dubbing (30+ langs)** | Yes, with your ElevenLabs key | No | Pro only | No | Pro only | Business only |
 | **AI UGC actors** | **Yes** | No | No | No | No | No |
 | **AI video effects** | Yes | No | Yes | No | No | No |
 | **Hook text overlays** | Yes | No | No | No | No | No |

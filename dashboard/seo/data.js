@@ -87,7 +87,7 @@ export const PIPELINE_STEPS = [
   },
   {
     title: 'Dubbing and publishing',
-    body: 'ElevenLabs dubbing translates the audio into 30+ languages while preserving the speaker\'s voice, and the dubbed track is re-transcribed so the subtitles match the new language. Finished clips post directly to TikTok, Instagram Reels and YouTube Shorts.',
+    body: 'With your own ElevenLabs key, dubbing translates the audio into 30+ languages while preserving the speaker\'s voice, and the dubbed track is re-transcribed so the subtitles match the new language. Finished clips post directly to TikTok, Instagram Reels and YouTube Shorts.',
   },
 ]
 
@@ -328,7 +328,7 @@ export const COMPETITORS = {
     ],
     whereWeDiffer: [
       'OpenShorts is MIT-licensed and self-hostable; Quso is a closed cloud service.',
-      'OpenShorts is a clipper first: moment scoring, face-tracked reframing, two-speaker and screencast layouts, dubbing into 30+ languages. Quso spreads across scheduling and planning too.',
+      'OpenShorts is a clipper first: moment scoring, face-tracked reframing, two-speaker and screencast layouts, dubbing into 30+ languages with your own ElevenLabs key. Quso spreads across scheduling and planning too.',
       'OpenShorts Cloud starts at $12/month billed monthly; Quso\'s cheapest paid plan is $29 month to month or $19/month on a yearly commitment.',
       'If you want one app that also plans and schedules your whole social calendar, Quso covers more ground than we do.',
     ],
@@ -350,7 +350,7 @@ export const COMPETITORS = {
     ],
     pick: {
       them: ['Your sources are already on YouTube', 'You want the lowest price per hour', 'One face-tracked crop is enough for your footage'],
-      us: ['You upload your own recordings', 'You clip podcasts with two people on camera, or screen recordings', 'You want to self-host, or dub clips into 30+ languages'],
+      us: ['You upload your own recordings', 'You clip podcasts with two people on camera, or screen recordings', 'You want to self-host, or dub clips into 30+ languages with your ElevenLabs key'],
     },
     published: '2026-10-05',
     name: '2short.ai',
@@ -391,14 +391,14 @@ export const COMPETITORS = {
     whereWeDiffer: [
       'OpenShorts is MIT-licensed and self-hostable; 2short.ai is a closed cloud service.',
       'OpenShorts takes a local upload on every plan; 2short.ai lists link imports (YouTube, Drive, URL).',
-      'OpenShorts adds layouts a single centred crop cannot do: two speakers stacked, screen recordings over the presenter, a webcam inset enlarged. It also dubs into 30+ languages.',
+      'OpenShorts adds layouts a single centred crop cannot do: two speakers stacked, screen recordings over the presenter, a webcam inset enlarged. It also dubs into 30+ languages with your own ElevenLabs key.',
       '2short.ai is cheaper per hour of source than OpenShorts Cloud and keeps its free exports unwatermarked, which ours are not. That is a real advantage.',
     ],
     bestFor:
       '2short.ai is the better pick if your sources are YouTube videos, you want the lowest price per hour and a single face-tracked crop is enough. OpenShorts is the better pick for uploads, podcasts with two people on camera, screen recordings, or a free self-hosted setup.',
     tldr: [
       '2short.ai is a YouTube-to-Shorts web app from $9.90/month, with a free plan of 30 minutes a month and no watermark. OpenShorts is open source: free when you run it yourself, or hosted from $12/month.',
-      'Both find the moments and reframe them to 9:16 with face tracking. OpenShorts adds two-speaker, screencast and webcam-inset layouts, dubbing into 30+ languages, and direct uploads on every plan.',
+      'Both find the moments and reframe them to 9:16 with face tracking. OpenShorts adds two-speaker, screencast and webcam-inset layouts, dubbing into 30+ languages with your own ElevenLabs key, and direct uploads on every plan.',
       'Pick 2short.ai for the lowest price per hour on YouTube sources. Pick OpenShorts for uploads, multi-person footage, self-hosting or changing the pipeline.',
     ],
     rows: { 'Usage cap': 'Metered in hours of analysis per month' },
@@ -481,7 +481,7 @@ export const COMPARISON_ROWS = [
   { feature: 'AI viral moment detection', os: 'Yes, Gemini 3.1 Flash-Lite', vendor: 'Yes' },
   { feature: 'Face-tracked 9:16 reframing', os: 'Yes, MediaPipe + YOLOv8', vendor: 'Yes' },
   { feature: 'Word-level auto subtitles', os: 'Yes, faster-whisper', vendor: 'Yes' },
-  { feature: 'AI voice dubbing, 30+ languages', os: 'Yes, ElevenLabs', vendor: 'No' },
+  { feature: 'AI voice dubbing, 30+ languages', os: 'Yes, with your own ElevenLabs key', vendor: 'No' },
   { feature: 'AI UGC video with lip-synced actors', os: 'Yes, from $0.65/video', vendor: 'No' },
   { feature: 'Free AI YouTube thumbnail & title studio', os: 'Yes', vendor: 'No' },
   { feature: 'Usage cap', os: 'None when self-hosted · metered on Cloud', vendor: 'Metered on every tier' },
