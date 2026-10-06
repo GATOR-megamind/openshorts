@@ -176,6 +176,7 @@ class ShotContentModel(BaseModel):
     kind: str
     focus_left: float
     focus_right: float
+    presenter_cam: bool
 
 
 class ShotContentResponse(BaseModel):
@@ -189,7 +190,9 @@ class ShotContentResponse(BaseModel):
 # tutorial is ~670k tokens and a GB-sized upload to get a few numbers back) and
 # was never actually called by the pipeline. The focus box is the one number
 # still asked for, and it only positions a crop: being 10% off moves the window
-# a little, it never changes which layout a shot gets.
+# a little, it never changes which layout a shot gets. presenter_cam is the one
+# yes/no that gates the per-scene inset (camera_inset.detect_in_scene): without
+# it, any small still face or body on a screen was enlarged as the presenter.
 SHOT_CONTENT_PROMPT = """
 Each image is one shot from the same landscape video, in order, numbered from 0.
 The video is being re-framed to a vertical 9:16 clip, and the person who uploaded
@@ -215,6 +218,14 @@ in full: the box must not cut a face or a line of text. Leave out toolbars, side
 panels, browser tabs, docks, desktop wallpaper and empty margins. If the whole
 width matters (a full spreadsheet, a full-width slide) answer 0 and 1. For
 "camera" answer 0 and 1.
+
+presenter_cam is true only for a "screen" shot with a LIVE webcam window of the
+person narrating the video laid over the screen (a bubble, a box, a Loom or
+QuickTime window). It is false for everything else, including a person who is
+part of the content: a photo or illustration on a slide, a thumbnail or cover
+art, a video playing or being edited inside the app, a game character, a
+person in a web page. When unsure, answer false. For "beside" and "camera"
+answer false.
 """
 
 

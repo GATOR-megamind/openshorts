@@ -19,6 +19,7 @@ from screencast_layout import (
     focus_crop,
     focus_filtergraph,
     overlapping_range,
+    presenter_cam,
     ranges_from_verdicts,
     shots_to_ask,
 )
@@ -73,7 +74,7 @@ def _routed_ranges(monkeypatch):
 class TestRenderAsksForScreens:
     def test_enabled_layout_routes_the_detected_screens(self, monkeypatch, fake_main):
         monkeypatch.setattr(screencast_layout, "ENABLED", True)
-        detected = [(3.0, 10.0, "screen", 1.0, (0.2, 0.7))]
+        detected = [(3.0, 10.0, "screen", 1.0, (0.2, 0.7), False)]
         monkeypatch.setattr(screencast_layout, "detect_content_ranges",
                             lambda video, scenes, fps: detected)
         assert _routed_ranges(monkeypatch) == detected
@@ -84,7 +85,7 @@ class TestRenderAsksForScreens:
         monkeypatch.setattr(screencast_layout, "ENABLED", True)
         monkeypatch.setattr(screencast_layout, "detect_content_ranges",
                             lambda video, scenes, fps: None)
-        assert _routed_ranges(monkeypatch) == [(3.0, 10.0, "screen", 1.0, None)]
+        assert _routed_ranges(monkeypatch) == [(3.0, 10.0, "screen", 1.0, None, False)]
 
     def test_disabled_layout_asks_nothing(self, monkeypatch, fake_main):
         monkeypatch.setattr(screencast_layout, "ENABLED", False)
@@ -133,23 +134,36 @@ class TestShotVerdicts:
                {"shot": 3, "kind": "slideshow", "focus_left": 0, "focus_right": 1},
                {"shot": "x"}]
         assert _parse_shots(raw, 4) == {
-            0: ("screen", (0.0, 0.6)),
-            1: ("camera", (0.0, 1.0)),
-            2: ("beside", None),       # a 2%-wide focus is noise
+            0: ("screen", (0.0, 0.6), False),
+            1: ("camera", (0.0, 1.0), False),
+            2: ("beside", None, False),       # a 2%-wide focus is noise
         }
+
+    def test_presenter_cam_counts_only_on_a_screen_and_only_when_true(self):
+        raw = [{"shot": 0, "kind": "screen", "focus_left": 0, "focus_right": 1,
+                "presenter_cam": True},
+               {"shot": 1, "kind": "camera", "focus_left": 0, "focus_right": 1,
+                "presenter_cam": True},
+               {"shot": 2, "kind": "beside", "focus_left": 0, "focus_right": 1,
+                "presenter_cam": True},
+               {"shot": 3, "kind": "screen", "focus_left": 0, "focus_right": 1,
+                "presenter_cam": "true"},
+               {"shot": 4, "kind": "screen", "focus_left": 0, "focus_right": 1}]
+        cams = {i: v[2] for i, v in _parse_shots(raw, 5).items()}
+        assert cams == {0: True, 1: False, 2: False, 3: False, 4: False}
 
     def test_screens_route_wide_and_cameras_do_not_move(self):
         scenes = scenes_of((0, 60), (60, 120), (120, 180))
-        verdicts = {0: ("camera", None), 1: ("screen", (0.2, 0.7)),
-                    2: ("beside", None)}
+        verdicts = {0: ("camera", None, False), 1: ("screen", (0.2, 0.7), True),
+                    2: ("beside", None, False)}
         assert ranges_from_verdicts(scenes, 30.0, verdicts) == [
-            (2.0, 4.0, "screen", 1.0, (0.2, 0.7)),
-            (4.0, 6.0, "beside", 0.7, None),
+            (2.0, 4.0, "screen", 1.0, (0.2, 0.7), True),
+            (4.0, 6.0, "beside", 0.7, None, False),
         ]
 
     def test_unasked_scene_borrows_the_nearest_answer(self):
         scenes = scenes_of((0, 30), (30, 33), (33, 36), (36, 90))
-        verdicts = {0: ("camera", None), 3: ("screen", None)}
+        verdicts = {0: ("camera", None, False), 3: ("screen", None, False)}
         ranges = ranges_from_verdicts(scenes, 30.0, verdicts)
         # Scene 1 sits next to the camera shot, scene 2 next to the screen.
         assert [r[:3] for r in ranges] == [(1.1, 1.2, "screen"), (1.2, 3.0, "screen")]
@@ -162,12 +176,21 @@ class TestShotVerdicts:
     def test_fallback_only_takes_faceless_scenes(self):
         scenes = scenes_of((0, 30), (30, 90))
         assert fallback_ranges(scenes, ['TRACK', 'GENERAL'], 30.0) == [
-            (1.0, 3.0, "screen", 1.0, None)]
+            (1.0, 3.0, "screen", 1.0, None, False)]
 
     def test_overlapping_range_carries_the_focus(self):
         ranges = [(0.0, 5.0, "screen", 1.0, (0.1, 0.5))]
         assert overlapping_range(1.0, 4.0, ranges) == (1.0, (0.1, 0.5))
         assert overlapping_range(6.0, 9.0, ranges) == (0.0, None)
+
+    def test_presenter_cam_needs_the_flag_on_an_overlapping_range(self):
+        ranges = [(0.0, 5.0, "screen", 1.0, None, True),
+                  (5.0, 9.0, "screen", 1.0, None, False)]
+        assert presenter_cam(1.0, 4.0, ranges)
+        assert not presenter_cam(5.0, 9.0, ranges)
+        assert not presenter_cam(9.5, 12.0, ranges)
+        # Ranges without the flag (pinned by a caller, old shape) never ask.
+        assert not presenter_cam(1.0, 4.0, [(0.0, 5.0, "screen", 1.0, None)])
 
 
 class TestFocusCrop:
@@ -228,3 +251,42 @@ class TestInsetPerScene:
         # Clamped inside the frame at an edge.
         x, y, w, h = overlay_box((0, 0, 100, 100), 1920, 1080)
         assert x == 0 and y == 0
+
+
+class TestPresenterCamGate:
+    """The per-scene inset detector enlarged game characters, photos on slides
+    and cover art (6-oct-2026 corpus run). It now runs only on WIDE scenes the
+    shot check flagged with presenter_cam, and on faces only."""
+
+    def _render_with(self, monkeypatch, fake_main, cam):
+        monkeypatch.setattr(screencast_layout, "ENABLED", True)
+        monkeypatch.setattr(screencast_layout, "detect_content_ranges",
+                            lambda video, scenes, fps: [
+                                (3.0, 10.0, "screen", 1.0, None, cam)])
+        monkeypatch.setattr(screencast_layout, "detect_screencast_scenes",
+                            lambda video, scenes, strategies, ranges: {1: ("WIDE", None)})
+        monkeypatch.setattr(reframe_v2.camera_inset, "detect", lambda path: None)
+        calls = []
+
+        def in_scene(video, start_f, end_f):
+            calls.append((start_f, end_f))
+            raise _Stop()
+
+        monkeypatch.setattr(reframe_v2.camera_inset, "detect_in_scene", in_scene)
+        # Past the routing render needs the real main (SmoothedCameraman);
+        # the fake one stops it there, which is fine: the gate ran before.
+        with pytest.raises(Exception):
+            reframe_v2.render("clip.mp4", "out.mp4", 9 / 16)
+        return calls
+
+    def test_flagged_screen_looks_for_the_presenter(self, monkeypatch, fake_main):
+        assert self._render_with(monkeypatch, fake_main, True) == [(90, 300)]
+
+    def test_unflagged_screen_never_does(self, monkeypatch, fake_main):
+        assert self._render_with(monkeypatch, fake_main, False) == []
+
+    def test_in_scene_detector_uses_faces_only(self):
+        import inspect
+        import camera_inset
+        src = inspect.getsource(camera_inset.detect_in_scene)
+        assert "detect_person_yolo" not in src

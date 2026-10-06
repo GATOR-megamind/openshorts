@@ -161,6 +161,22 @@ def overlapping_width(scene_start, scene_end, ranges):
     return overlapping_range(scene_start, scene_end, ranges)[0]
 
 
+def presenter_cam(scene_start, scene_end, ranges):
+    """Whether the shot check saw a live webcam window over this scene's screen.
+
+    The sixth element of a range (``presenter_cam``). Ranges without it (the
+    fallback, a caller that pinned its own) answer False: the per-scene inset
+    detector only runs where the model said a presenter is laid over the
+    screen, because a small still face on a screen is just as often a photo on
+    a slide, cover art or a game character (6-oct-2026 corpus run).
+    """
+    for r in ranges:
+        if len(r) > 5 and r[5] and \
+                min(scene_end, r[1]) - max(scene_start, r[0]) > MIN_OVERLAP_SECONDS:
+            return True
+    return False
+
+
 def overlapping_range(scene_start, scene_end, ranges):
     """(width_fraction, focus) of the widest range the scene overlaps.
 
@@ -219,7 +235,12 @@ FOCUS_MAX_HEIGHT_RATIO = 0.6
 
 
 def _parse_shots(raw, n):
-    """The model's answer as {position: (kind, focus)}; junk is dropped."""
+    """The model's answer as {position: (kind, focus, cam)}; junk is dropped.
+
+    ``cam`` (presenter_cam) only means something on a screen shot, so it is
+    forced False on the other kinds, and only a real true counts: anything
+    else the model might send is a no.
+    """
     out = {}
     for item in raw or []:
         try:
@@ -227,12 +248,14 @@ def _parse_shots(raw, n):
             kind = str(item.get("kind", "")).strip().lower()
             left = float(item.get("focus_left", 0.0))
             right = float(item.get("focus_right", 1.0))
+            cam = item.get("presenter_cam") is True
         except (AttributeError, TypeError, ValueError):
             continue
         if not 0 <= idx < n or kind not in ("screen", "beside", "camera"):
             continue
         left, right = max(0.0, min(left, 1.0)), max(0.0, min(right, 1.0))
-        out[idx] = (kind, (left, right) if right - left >= 0.05 else None)
+        out[idx] = (kind, (left, right) if right - left >= 0.05 else None,
+                    cam and kind == "screen")
     return out
 
 
@@ -249,10 +272,11 @@ def shots_to_ask(scenes, limit=None):
 
 
 def ranges_from_verdicts(scenes, fps, verdicts):
-    """Content ranges (start_s, end_s, kind, width, focus) in the clip timeline.
+    """Content ranges (start_s, end_s, kind, width, focus, cam) in the clip
+    timeline.
 
-    ``verdicts`` maps scene index -> (kind, focus). A scene that was not asked
-    takes the verdict of the nearest asked one.
+    ``verdicts`` maps scene index -> (kind, focus, cam). A scene that was not
+    asked takes the verdict of the nearest asked one.
     """
     asked = sorted(verdicts)
     if not asked:
@@ -260,12 +284,12 @@ def ranges_from_verdicts(scenes, fps, verdicts):
     ranges = []
     for i, (start, end) in enumerate(scenes):
         src = i if i in verdicts else min(asked, key=lambda a: abs(a - i))
-        kind, focus = verdicts[src]
+        kind, focus, cam = verdicts[src]
         width = KIND_WIDTH.get(kind)
         if not width:
             continue
         ranges.append((start.get_frames() / fps, end.get_frames() / fps,
-                       kind, width, focus))
+                       kind, width, focus, cam))
     return ranges
 
 
@@ -291,7 +315,7 @@ def _shot_frames(video_path, scenes, indices):
 def detect_content_ranges(video_path, scenes, fps):
     """Which of this clip's shots show a screen, and where its reading area is.
 
-    Returns a list of (start_s, end_s, kind, width_fraction, focus), [] when no
+    Returns a list of (start_s, end_s, kind, width_fraction, focus, cam), [] when no
     shot shows one or the module is off, or None when the question could not be
     asked or answered (no key, no frames, an API error). Callers must treat None
     differently from []: the user asked for this layout, so a failed check must
@@ -344,7 +368,8 @@ def detect_content_ranges(video_path, scenes, fps):
     verdicts = {keep[n][0]: v for n, v in by_position.items()}
     print("   📊 Shots: " + ", ".join(
         f"{i}={k}" + (f"[{f[0]:.2f}-{f[1]:.2f}]" if f and k != "camera" else "")
-        for i, (k, f) in sorted(verdicts.items())))
+        + ("+cam" if c else "")
+        for i, (k, f, c) in sorted(verdicts.items())))
     return ranges_from_verdicts(scenes, fps, verdicts)
 
 
@@ -360,7 +385,7 @@ def fallback_ranges(scenes, strategies, fps):
     for (start, end), strategy in zip(scenes, strategies):
         if strategy == 'GENERAL':
             out.append((start.get_frames() / fps, end.get_frames() / fps,
-                        "screen", 1.0, None))
+                        "screen", 1.0, None, False))
     return out
 
 

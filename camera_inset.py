@@ -262,10 +262,14 @@ def detect_in_scene(video_path, start_f, end_f, samples=5):
     layout shrank both into a 1080px-wide strip (Ty Myers tutorial,
     6-oct-2026). What still rules a subject out: being big (that is the shot,
     not an overlay) or moving between samples.
+
+    Faces only, no YOLO fallback: a person box on a screen was a game
+    character or someone inside a video far more often than a webcam (corpus
+    run, 6-oct-2026: every YOLO-only hit was wrong), and the caller only asks
+    where the shot check said a presenter's camera is there.
     """
     import cv2
     import numpy as np
-    import main as m
     import screencast_layout
 
     if end_f - 1 < start_f:
@@ -283,15 +287,12 @@ def detect_in_scene(video_path, start_f, end_f, samples=5):
             if not ok:
                 continue
             faces = screencast_layout.detect_faces_full_res(frame)
-            if faces:
-                box = max(faces, key=lambda c: c['score'])['box']
-                widen = OVERLAY_FACE_WIDTHS
-            else:
-                box = m.detect_person_yolo(frame)
-                widen = INSET_PADDING
-            if not box or box[3] > frame_h * MAX_SUBJECT_HEIGHT:
+            if not faces:
                 continue
-            boxes.append(overlay_box(box, frame_w, frame_h, widen))
+            box = max(faces, key=lambda c: c['score'])['box']
+            if box[3] > frame_h * MAX_SUBJECT_HEIGHT:
+                continue
+            boxes.append(overlay_box(box, frame_w, frame_h))
     finally:
         cap.release()
     need = samples // 2 + 1

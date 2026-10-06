@@ -494,10 +494,13 @@ def render(input_video, final_output_video, aspect_ratio, content_ranges=None,
             if inset and camera_inset.present_in_scene(
                     input_video, inset, start_f, end_f):
                 box = inset
-            elif plan == 'WIDE':
+            elif plan == 'WIDE' and screencast_layout.presenter_cam(
+                    start_f / fps, end_f / fps, content_ranges):
                 # A full screen with the presenter's camera floating over it
                 # anywhere, not only in a corner: show it below, enlarged,
-                # instead of leaving it a thumbnail inside the screen.
+                # instead of leaving it a thumbnail inside the screen. Only
+                # where the shot check saw a live webcam window: geometry alone
+                # also enlarged game characters, photos on slides and cover art.
                 box = camera_inset.detect_in_scene(input_video, start_f, end_f)
             if box:
                 plan, centre = 'INSET', None
