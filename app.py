@@ -5239,7 +5239,9 @@ class HookRequest(BaseModel):
     clip_index: int
     text: Optional[str] = ""
     input_filename: Optional[str] = None
-    position: Optional[str] = "top" # top, center, bottom
+    # auto (off the faces and the captions, hooks/hook_placement), or an
+    # explicit top / center / bottom, which is drawn exactly there.
+    position: Optional[str] = "auto"
     size: Optional[str] = "M" # S, M, L
     duration_seconds: Optional[float] = None  # None = hook visible for the whole clip
     style: Optional[str] = "pill"  # pill/classic/dark/yellow/red/outline/outline_yellow
@@ -5319,7 +5321,11 @@ async def add_hook(req: HookRequest, request: Request):
         try:
             # Run in thread pool
             def run_hook():
-                add_hook_to_video(input_path, req.text, output_path, position=req.position, font_scale=font_scale, duration=req.duration_seconds, style=req.style, font=req.font)
+                return add_hook_to_video(
+                    input_path, req.text, output_path, position=req.position or "auto",
+                    font_scale=font_scale, duration=req.duration_seconds, style=req.style,
+                    font=req.font, layout_ranges=clip_data.get('layout_ranges'),
+                    has_captions=had_captions)
 
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(None, run_hook)

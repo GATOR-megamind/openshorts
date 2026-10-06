@@ -1309,15 +1309,24 @@ def auto_hook_clip(clip_path, clip, captions=None):
         output_dir = os.path.dirname(clip_path)
         out_path = os.path.join(
             output_dir, f"hooked_{int(time.time())}_{os.path.basename(clip_path)}")
-        config = {"text": text, "style": style, "position": "top",
+        # "auto": off the speaker's face and off the captions (hook_placement);
+        # the layout ranges say where the captions sit (the seam on SPLIT).
+        config = {"text": text, "style": style, "position": "auto",
                   "duration_seconds": seconds}
+        place = {"position": "auto", "layout_ranges": clip.get('layout_ranges'),
+                 "has_captions": bool(captions)}
+
+        def note(result):
+            if isinstance(result, dict) and result.get("y") is not None:
+                config["y"] = result["y"]
+
         if captions:
             vf, generation_id = captions
             captioned = os.path.join(
                 output_dir, f"subtitled_{generation_id}_{os.path.basename(out_path)}")
             try:
-                add_hook_to_video(clip_path, text, out_path, position="top",
-                                  duration=seconds, style=style, also=(vf, captioned))
+                note(add_hook_to_video(clip_path, text, out_path, duration=seconds,
+                                       style=style, also=(vf, captioned), **place))
                 print(f"   🪝 Hook + 💬 captions burned in one pass ({style}, {seconds:g}s): {text}")
                 return out_path, {**config, "_captioned": captioned}
             except Exception as e:
@@ -1332,8 +1341,8 @@ def auto_hook_clip(clip_path, clip, captions=None):
                       f"burning them one at a time.")
                 if os.path.exists(captioned):
                     os.remove(captioned)  # never leave a half-written subtitled_ behind
-        add_hook_to_video(clip_path, text, out_path, position="top",
-                          duration=seconds, style=style)
+        note(add_hook_to_video(clip_path, text, out_path, duration=seconds,
+                               style=style, **place))
         print(f"   🪝 Hook burned ({style}, {seconds:g}s): {text}")
         return out_path, config
     except Exception as e:

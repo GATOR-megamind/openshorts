@@ -45,6 +45,20 @@ Gemini-only (frames): with just a local LLM it logs one line and keeps the
 transcript hook. `HOOK_GROUNDING=0` disables it. The detail prompt also carries
 the rule "about this moment, not the video".
 
+## Where the hook is drawn (`hook_placement.py`)
+
+The hook used to sit at a fixed 20% of the height, which is where a TRACK
+speaker's eyes are and where the top SPLIT speaker's face is. `position="auto"`
+(the job pipeline's auto-hook, `/api/hook` without a position, and the editor's
+default) samples 6 frames of the hook's window, detects faces with MediaPipe
+(boxes grown to the whole head), and picks the height that covers the least
+face, inside the platform-safe area (6%-80%) and never on a caption band: the
+seam on SPLIT stretches, the bottom elsewhere (`layout_ranges`). Ties go to
+the old 20% spot, so a clip with no face renders as before; the text shrinks
+(0.85, 0.72) only when every height still covers a face. No frames or no
+MediaPipe means the old spot. An explicit top / center / bottom is drawn
+exactly there. The browser preview cannot see faces and draws auto at the top.
+
 ## Reframing modes
 
 **A source already shot vertical is passed through untouched.**

@@ -42,7 +42,9 @@ export interface SubtitleConfig {
 }
 
 // --- Hook config ---
-export type HookPosition = "top" | "center" | "bottom";
+// "auto": the server picks a spot off the faces and the captions (hook_placement.py);
+// the browser preview and render, which cannot see faces, draw it at the top.
+export type HookPosition = "auto" | "top" | "center" | "bottom";
 export type HookSize = "S" | "M" | "L";
 export type HookEntrance = "spring" | "fade" | "slide-up" | "none";
 export type HookStyle =
@@ -122,7 +124,7 @@ export const subtitleConfigSchema = z.object({
 
 export const hookConfigSchema = z.object({
   text: z.string(),
-  position: z.enum(["top", "center", "bottom"]),
+  position: z.enum(["auto", "top", "center", "bottom"]),
   size: z.enum(["S", "M", "L"]),
   style: z
     .enum(["pill", "classic", "dark", "yellow", "red", "outline", "outline_yellow"])

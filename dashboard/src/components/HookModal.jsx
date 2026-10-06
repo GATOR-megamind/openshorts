@@ -36,7 +36,10 @@ const FONT_CSS = {
 // The style's own typeface when none is picked (what hooks.py renders).
 const styleFont = (st) => (st === 'pill' ? 'montserrat' : 'serif');
 
+// auto: the server keeps the hook off the speaker's face and the captions
+// (hook_placement.py). The preview cannot see faces and draws it at the top.
 const POSITION_OPTIONS = [
+    { value: 'auto', label: 'auto' },
     { value: 'top', label: 'top' },
     { value: 'center', label: 'center' },
     { value: 'bottom', label: 'bottom' },
@@ -57,7 +60,9 @@ function loadHookPrefs() {
 export default function HookModal({ isOpen, onClose, onGenerate, onRemove, isProcessing, videoUrl, initialText, durationInSeconds, existingSubtitles, hasCaptions, serverRender, burnedHook }) {
     const prefs = loadHookPrefs();
     const [text, setText] = useState(initialText || 'POV: You are using the viral hook feature');
-    const [position, setPosition] = useState(prefs.position || 'top');
+    // Stored as `pos`, not `position`: before 'auto' existed every save wrote
+    // 'top' whether or not the user ever touched the control.
+    const [position, setPosition] = useState(prefs.pos || 'auto');
     const [size, setSize] = useState(prefs.size || 'M');
     const [style, setStyle] = useState(prefs.style || 'pill');
     // null = follow the style's own typeface.
@@ -214,6 +219,12 @@ export default function HookModal({ isOpen, onClose, onGenerate, onRemove, isPro
                                 onChange={setPosition}
                                 size="sm"
                             />
+                            {position === 'auto' && (
+                                <p className="text-[11px] text-muted mt-1.5 leading-relaxed">
+                                    Placed where it covers no face and no captions.
+                                    The preview shows it at the top.
+                                </p>
+                            )}
                             {position === 'bottom' && hasCaptions && (
                                 <p className="text-[11px] text-warn mt-1.5 leading-relaxed">
                                     This clip has captions near the bottom — the hook may
@@ -298,7 +309,7 @@ export default function HookModal({ isOpen, onClose, onGenerate, onRemove, isPro
                             onClick={() => {
                                 try {
                                     localStorage.setItem('os_hook_prefs', JSON.stringify({
-                                        style, font, position, size, entranceAnimation,
+                                        style, font, pos: position, size, entranceAnimation,
                                     }));
                                 } catch { /* ignore */ }
                                 onGenerate({

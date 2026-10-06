@@ -425,11 +425,59 @@ def create_hook_image(text, target_width, output_image_path="hook_overlay.png", 
     img.save(output_image_path)
     return output_image_path, canvas_w, canvas_h
 
+def _auto_place(video_path, text, target_box_width, hook_filename, font_scale, style, font,
+                video_width, video_height, duration, ranges, has_captions, first_dims):
+    """position='auto': pick the height (and, only if every height covers a
+    face, a smaller text) with hook_placement. Returns {"image": (path, w, h),
+    "y_px", "y", "scale"}, or None to fall back to the legacy top spot (no
+    readable frames, no MediaPipe, or nothing fits between the bands)."""
+    import hook_placement
+    import layout_ranges as _layouts
+
+    window_end = float(duration) if duration else hook_placement.DEFAULT_WINDOW
+    if ranges is None:
+        ranges = _layouts.read(video_path)
+    bands = hook_placement.caption_bands(_layouts.normalise(ranges), 0.0, window_end, has_captions)
+    frames = hook_placement.detect_faces(video_path, 0.0, window_end)
+    if frames is None:
+        print("   ℹ️ Hook placement: no frames read, keeping the top spot.")
+        return None
+
+    dims = {1.0: first_dims}
+
+    def measure(rel):
+        if rel not in dims:
+            _, w, h = create_hook_image(text, target_box_width, hook_filename,
+                                        font_scale=font_scale * rel, style=style, font=font)
+            dims[rel] = (w, h)
+        w, h = dims[rel]
+        return w / video_width, h / video_height
+
+    rel, y, cost = hook_placement.best_scale(measure, frames, bands)
+    if y is None:
+        print("   ℹ️ Hook placement: no spot clears the captions, keeping the top spot.")
+        return None
+    # The temp PNG holds the last size measured: render the chosen one again.
+    _, w, h = create_hook_image(text, target_box_width, hook_filename,
+                                font_scale=font_scale * rel, style=style, font=font)
+    n_faces = sum(len(f) for f in frames)
+    print(f"   🎯 Hook placement: y={y:.2f} scale={rel:g} face cover={cost:.2f} "
+          f"({n_faces} faces in {len(frames)} frames, bands={bands})")
+    return {"image": (hook_filename, w, h), "y_px": int(round(y * video_height)),
+            "y": round(y, 3), "scale": rel}
+
+
 def add_hook_to_video(video_path, text, output_path, position="top", font_scale=1.0, duration=None, style="pill",
-                      also=None, font=None):
+                      also=None, font=None, layout_ranges=None, has_captions=True):
     """
     Overlays text hook onto video.
-    position: 'top', 'center', 'bottom'
+    position: 'top', 'center', 'bottom', or 'auto' (hook_placement: off the
+      faces in the hook's window and off the caption bands; what the job
+      pipeline and an editor left on "auto" use). An explicit top/center/
+      bottom is drawn exactly where it always was.
+    layout_ranges / has_captions: only read by 'auto', to know where the
+      captions sit (seam on SPLIT stretches, bottom elsewhere). None reads
+      the clip's own ``.layout.json`` sidecar.
     font_scale: float multiplier (1.0 = default)
     style: hook look (see HOOK_STYLES)
     also: optional (vf, path): ALSO write ``path`` = the hooked picture with
@@ -469,11 +517,20 @@ def add_hook_to_video(video_path, text, output_path, position="top", font_scale=
     try:
         img_path, box_w, box_h = create_hook_image(text, target_box_width, hook_filename, font_scale=font_scale, style=style,
                                                        font=font)
-        
+        placed = None
+        if position == "auto":
+            placed = _auto_place(video_path, text, target_box_width, hook_filename, font_scale,
+                                 style, font, video_width, video_height, duration,
+                                 layout_ranges, has_captions, (box_w, box_h))
+            if placed:
+                img_path, box_w, box_h = placed["image"]
+
         # 3. Calculate Overlay Position
         overlay_x = (video_width - box_w) // 2
         
-        if position == "center":
+        if placed:
+            overlay_y = placed["y_px"]
+        elif position == "center":
             overlay_y = (video_height - box_h) // 2
         elif position == "bottom":
              # Bottom 20% mark (approx)
@@ -511,6 +568,9 @@ def add_hook_to_video(video_path, text, output_path, position="top", font_scale=
         
         subprocess.run(ffmpeg_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=1800)
         print(f"✅ Hook added to {output_path}")
+        if placed:
+            return {"position": "auto", "y": placed["y"], "scale": placed["scale"],
+                    "height": round(box_h / video_height, 3)}
         return True
 
     except subprocess.TimeoutExpired:
