@@ -436,7 +436,6 @@ async def _submit(user_id, email, run_id, video_url: str, max_minutes: int) -> d
         "acknowledged": True,
         "max_minutes": max_minutes,
         "auto_hook": "1",
-        "auto_hook_style": "classic",
     }
     try:
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=_app),

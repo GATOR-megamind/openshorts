@@ -97,8 +97,8 @@ TOOLS = [
                 },
                 "hook_style": {
                     "type": "string",
-                    "enum": ["classic", "dark", "yellow", "red", "outline", "outline_yellow"],
-                    "description": "Look of the hook text (with auto_hook). Default classic.",
+                    "enum": ["pill", "classic", "dark", "yellow", "red", "outline", "outline_yellow"],
+                    "description": "Look of the hook text (with auto_hook). Default pill.",
                 },
                 "captions": {
                     "type": "boolean",
