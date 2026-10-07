@@ -5825,8 +5825,67 @@ async def social_total_impressions(
             break
         params["cursor"] = cursor
 
-    return {"profile_username": profile,
-            **social_metrics.summarise(rows, window_start)}
+    summary = social_metrics.summarise(rows, window_start)
+    refreshing = False
+    if BILLING_ENABLED and social_metrics.refresh_due(summary["updated_at"]):
+        refreshing = _start_post_metrics_refresh(api_key, profile, window_start)
+    return {"profile_username": profile, **summary, "refreshing": refreshing}
+
+
+# Live re-reads of a profile's recent posts, so the snapshot cache the card sums
+# moves forward (social_metrics.REFRESH_AFTER explains why it otherwise froze).
+# One refresh at a time across the process: every live read spends the managed
+# account's shared rate budget. Per profile, at most one attempt per window.
+_metrics_refresh_lock = asyncio.Lock()
+_metrics_refresh_tried: dict = {}
+_METRICS_REFRESH_RETRY_SECONDS = 6 * 3600
+
+
+def _start_post_metrics_refresh(api_key, profile, since) -> bool:
+    now = time.monotonic()
+    last = _metrics_refresh_tried.get(profile)
+    if last is not None and now - last < _METRICS_REFRESH_RETRY_SECONDS:
+        return False
+    _metrics_refresh_tried[profile] = now
+    asyncio.create_task(_refresh_post_metrics(api_key, profile, since))
+    return True
+
+
+async def _refresh_post_metrics(api_key, profile, since):
+    import social_metrics
+    from cloud.social_profiles import profile_token
+    async with _metrics_refresh_lock:
+        try:
+            token = await profile_token(profile)
+            if not token:
+                return
+            history = []
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                for page in range(1, 6):
+                    resp = await client.get(
+                        "https://api.upload-post.com/api/uploadposts/history",
+                        headers={"Authorization": f"Bearer {token}"},
+                        params={"page": page, "limit": 100})
+                    if resp.status_code != 200:
+                        break
+                    rows = resp.json().get("history") or []
+                    history.extend(rows)
+                    oldest = rows[-1].get("upload_timestamp") if rows else None
+                    if len(rows) < 100 or (oldest and str(oldest) < since.isoformat()):
+                        break
+                ids = social_metrics.request_ids_to_refresh(history, since)
+                done = 0
+                for rid in ids:
+                    resp = await client.get(
+                        f"https://api.upload-post.com/api/uploadposts/post-analytics/{rid}",
+                        headers={"Authorization": f"Apikey {api_key}"}, timeout=90.0)
+                    if resp.status_code == 429:
+                        break  # shared budget spent: the next window carries on
+                    done += 1
+                    await asyncio.sleep(0.5)
+            print(f"[social-metrics] {profile}: refreshed {done}/{len(ids)} post(s)")
+        except Exception as e:
+            print(f"[social-metrics] {profile}: refresh failed ({e})")
 
 
 async def _scheduled_posts_for(api_key: str, profile: str) -> list:

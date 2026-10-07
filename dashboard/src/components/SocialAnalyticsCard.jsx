@@ -46,7 +46,9 @@ export default function SocialAnalyticsCard() {
           <BarChart3 size={16} className="text-brass" /> Your posts
         </h3>
         <span className="text-muted text-xs lowercase">
-          posted in the last 30 days{data.updated_at ? ` · updated ${fmtDay(data.updated_at)}` : ''}
+          posted in the last 30 days
+          {data.refreshing ? ' · updating, reload in a minute'
+            : data.updated_at ? ` · updated ${fmtDay(data.updated_at)}` : ''}
         </span>
       </div>
 
@@ -80,7 +82,7 @@ export default function SocialAnalyticsCard() {
                      className="flex items-center justify-between gap-3 text-sm">
                   <span className="text-ink2 truncate lowercase">
                     {p.platform} · {fmtDay(p.published_at)}
-                    {p.post_url && (
+                    {/^https?:\/\//.test(p.post_url || '') && (
                       <a href={p.post_url} target="_blank" rel="noreferrer"
                          className="inline-flex align-middle ml-1.5 text-muted hover:text-ink">
                         <ExternalLink size={12} />

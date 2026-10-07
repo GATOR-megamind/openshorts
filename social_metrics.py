@@ -9,14 +9,26 @@ days" card wrong by a wide margin:
   lifetime views, so "last 30 days" meant "everything, ever".
 * It is account-wide, not OpenShorts-wide: the creator's native posts come along
   too. Only rows with an ``upload_timestamp`` went out through Upload-Post; the
-  rest were never ours (on one profile, 131 of 180 rows and most of the views).
+  rest were never ours, and on an active creator they are most of the views.
 * Snapshots repeat a post. Summing every row would count it once per capture.
 
 ``summarise`` keeps the latest snapshot of each post that was published through
 Upload-Post inside the window, and reports when that snapshot was taken so the
 page can say how fresh the numbers are.
 """
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+
+# The cache only fills when a post's metrics are read LIVE (Upload-Post dropped
+# its daily sweep: it cost hundreds of thousands of platform calls a day), and
+# nothing here read them live, so a profile's numbers froze at whatever day
+# someone last looked. The account page now asks for a live read of its own
+# recent posts when the newest snapshot is older than this.
+REFRESH_AFTER = timedelta(hours=20)
+
+# Live reads share one rate budget for the whole managed account (100 per 5
+# minutes across every OpenShorts user), so one refresh reads at most this many
+# posts. Newest first: the ones still gaining views.
+MAX_LIVE_READS = 40
 
 
 def _parse(ts):
@@ -85,3 +97,33 @@ def summarise(rows, since, top_n=3):
         "top_posts": posts[:top_n],
         "updated_at": captured_at.isoformat() if captured_at else None,
     }
+
+
+def refresh_due(updated_at, now=None):
+    """True when the newest snapshot is missing or older than REFRESH_AFTER."""
+    now = now or datetime.now(timezone.utc)
+    captured = _parse(updated_at)
+    return captured is None or now - captured > REFRESH_AFTER
+
+
+def request_ids_to_refresh(history_rows, since, limit=MAX_LIVE_READS):
+    """Upload-Post request ids of successful posts published since ``since``.
+
+    One request id covers every platform that post went to, so a live read per
+    id refreshes all of them. Newest first, deduplicated, capped at ``limit``.
+    """
+    seen, out = set(), []
+    rows = sorted((r for r in history_rows if isinstance(r, dict)),
+                  key=lambda r: str(r.get("upload_timestamp") or ""), reverse=True)
+    for row in rows:
+        rid = row.get("request_id")
+        published = _parse(row.get("upload_timestamp"))
+        if not rid or rid in seen or not row.get("success"):
+            continue
+        if published is None or published < since:
+            continue
+        seen.add(rid)
+        out.append(rid)
+        if len(out) >= limit:
+            break
+    return out

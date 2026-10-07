@@ -46,3 +46,24 @@ def test_nothing_published_reads_as_empty():
     out = summarise([], SINCE)
     assert out["posts_count"] == 0 and out["total_impressions"] == 0
     assert out["updated_at"] is None
+
+
+def test_refresh_due_when_stale_or_missing():
+    from social_metrics import refresh_due
+    now = datetime(2026, 10, 7, 12, tzinfo=timezone.utc)
+    assert refresh_due(None, now)
+    assert refresh_due("2026-09-30T13:17:31", now)
+    assert not refresh_due("2026-10-07T08:00:00", now)
+
+
+def test_request_ids_newest_first_successful_in_window_and_capped():
+    from social_metrics import request_ids_to_refresh
+    rows = [
+        {"request_id": "old", "success": True, "upload_timestamp": "2026-08-21T19:40:02Z"},
+        {"request_id": "a", "success": True, "upload_timestamp": "2026-09-20T10:00:00Z"},
+        {"request_id": "a", "success": True, "upload_timestamp": "2026-09-20T10:00:00Z"},
+        {"request_id": "failed", "success": False, "upload_timestamp": "2026-10-01T10:00:00Z"},
+        {"request_id": "b", "success": True, "upload_timestamp": "2026-10-06T10:02:47Z"},
+    ]
+    assert request_ids_to_refresh(rows, SINCE) == ["b", "a"]
+    assert request_ids_to_refresh(rows, SINCE, limit=1) == ["b"]

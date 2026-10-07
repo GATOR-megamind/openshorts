@@ -102,6 +102,25 @@ async def get_connect_url(username: str, return_to: str = "account") -> str:
     return data.get("access_url") or data.get("url")
 
 
+async def profile_token(username: str):
+    """A short-lived token scoped to one profile, or None.
+
+    Upload-Post's history endpoint filters by profile only when called with a
+    profile JWT; with the managed key it returns every OpenShorts user's posts.
+    The token rides in generate-jwt's access_url.
+    """
+    from urllib.parse import parse_qs, urlparse
+    async with httpx.AsyncClient(timeout=20) as client:
+        resp = await client.post(
+            f"{API_BASE}/uploadposts/users/generate-jwt",
+            headers=_auth_headers(),
+            json={"username": username},
+        )
+        resp.raise_for_status()
+        url = resp.json().get("access_url") or ""
+    return (parse_qs(urlparse(url).query).get("token") or [None])[0]
+
+
 @router.post("/api/social/connect")
 async def social_connect(request: Request):
     """Return a branded Upload-Post connection URL for the signed-in managed user."""
