@@ -496,13 +496,12 @@ def _parakeet_transcript(results):
 # "Тудей Марк із гана такі сторі" for "Today Mark is gonna tell his story". The
 # file-level language still reads "en", so the whisper fallback never fires,
 # and the Cyrillic words end up burned into the captions and fed to the moment
-# picker. Measured on 5-oct-2026: 9 of the 18 English jobs on the prod disk had
-# some, 3 of them on more than 1% of their words (one 39-minute podcast: 294 of
-# 7,017 words, in 70 of 884 segments, all of them short).
+# picker. It is common on English sources, and the drifted segments are
+# almost always the short ones.
 #
 # The repair re-transcribes only those segments with whisper, forced to the
-# language of the whole file. On that podcast's first 5 minutes all 13 drifted
-# segments came back as the right English sentence.
+# language of the whole file; on a real English podcast every drifted segment
+# came back as the right English sentence.
 
 _SCRIPT_RX = {
     "cyrl": re.compile("[\u0400-\u04FF]"),

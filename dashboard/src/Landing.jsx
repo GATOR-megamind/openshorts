@@ -11,8 +11,7 @@ const APPARATUS_CALLOUTS = ['RATIO · 9:16', 'CLIPS · 3–15', 'HOOK · AUTO', 
 // its own for the hero. The credit is what the licence asks for, so it stays
 // next to the video that uses it.
 // The six clips OpenShorts cut from that episode with no clip-count setting,
-// in source order, with the score the moment picker gave each (job f3ee5d96,
-// 6-oct-2026).
+// in source order, with the score the moment picker gave each.
 const EPISODE_CLIPS = [
   { n: 1, score: 88, title: 'I knew I was marrying her on our third date' },
   { n: 2, score: 82, title: 'Why we do absolutely everything together' },
@@ -548,8 +547,7 @@ export default function Landing({ onLaunchApp }) {
         </div>
       </section>
 
-      {/* Proof — real usage numbers, read from the production database and
-          GitHub on 6-oct-2026. Update by hand; never round them up. */}
+      {/* Proof: real usage numbers. Update by hand; never round them up. */}
       <section className="border-b border-rule">
         <div className="max-w-6xl mx-auto px-6 py-12 grid grid-cols-2 md:grid-cols-4 gap-y-8 md:divide-x divide-rule text-center">
           {[

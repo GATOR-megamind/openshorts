@@ -68,8 +68,7 @@ run old and new code side by side, compare clips by decoded-frame MD5 / SSIM.
 `transcribe_backends._repair_script_drift`. Parakeet v3 picks the language per
 VAD segment, so on short segments it can spell English phonetically in
 Ukrainian/Russian ("Тудей Марк із гана такі сторі") while the file still reads
-`en` and the whisper fallback never fires (5-oct-2026: 9 of 18 English jobs on
-disk). Segments whose script cannot belong to the file's language are
+`en` and the whisper fallback never fires. Segments whose script cannot belong to the file's language are
 re-transcribed with whisper forced to that language; any failure keeps the
 parakeet text.
 
