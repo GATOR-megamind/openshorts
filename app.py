@@ -5777,18 +5777,6 @@ _PERIOD_DAYS = {"last_day": 1, "last_week": 7, "last_month": 30,
                 "last_3months": 90, "last_year": 365}
 
 
-def _post_row_views(row: dict) -> float:
-    metrics = row.get("post_metrics") or row.get("metrics") or row
-    for key in ("views", "impressions", "plays"):
-        value = metrics.get(key)
-        if value is not None:
-            try:
-                return float(value)
-            except (TypeError, ValueError):
-                return 0.0
-    return 0.0
-
-
 @app.get("/api/social/analytics/impressions")
 async def social_total_impressions(
     request: Request,
@@ -5799,53 +5787,46 @@ async def social_total_impressions(
     breakdown: Optional[bool] = None,
     user: Optional[str] = None,
 ):
-    """Total impressions for the profile over a window.
+    """Views of the posts published through OpenShorts in a window.
 
     Computed by aggregating the profile-scoped post cache instead of proxying
     Upload-Post's /total-impressions: that endpoint echoes the requested
     profile but returns account-wide numbers (observed 2026-08-21 — a profile
     with zero posts got 85K Instagram impressions), which for managed users
     would leak other tenants' aggregates. The cache endpoint IS scoped by
-    ?user=, so summing it is both correct and cheap.
+    ?user=, but its ``since`` is the snapshot date and it carries the creator's
+    native posts too: social_metrics.summarise keeps only our posts published
+    in the window, latest snapshot each.
     """
+    import social_metrics
+
     api_key, profile = await _social_analytics_auth(request, user)
 
     days = _PERIOD_DAYS.get(period or "", 30)
-    since = start_date or (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
-    params = {"user": profile, "since": since, "limit": 200}
+    window_start = (datetime.fromisoformat(start_date).replace(tzinfo=timezone.utc)
+                    if start_date else datetime.now(timezone.utc) - timedelta(days=days))
+    # A post published in the window can only have been captured after it.
+    params = {"user": profile, "since": window_start.strftime("%Y-%m-%d"), "limit": 200}
     if end_date:
         params["until"] = end_date
     if platform:
         params["platform"] = platform
 
-    total = 0.0
-    per_platform: dict = {}
-    for _page in range(5):  # 1000 posts is far beyond any real profile window
+    rows = []
+    for _page in range(5):  # 1000 rows is far beyond any real profile window
         data = await _upload_post_get(
             api_key,
             "https://api.upload-post.com/api/uploadposts/post-analytics/cached",
             params,
         )
-        rows = data.get("posts") or data.get("data") or data.get("items") or []
-        for row in rows:
-            if not isinstance(row, dict):
-                continue
-            views = _post_row_views(row)
-            total += views
-            name = row.get("platform")
-            if name:
-                per_platform[name] = per_platform.get(name, 0) + views
+        rows.extend(data.get("posts") or data.get("data") or data.get("items") or [])
         cursor = data.get("next_cursor")
         if not cursor or not data.get("has_more"):
             break
         params["cursor"] = cursor
 
-    result = {
-        "profile_username": profile,
-        "total_impressions": round(total),
-        "per_platform": {k: round(v) for k, v in per_platform.items()},
-    }
-    return result
+    return {"profile_username": profile,
+            **social_metrics.summarise(rows, window_start)}
 
 
 async def _scheduled_posts_for(api_key: str, profile: str) -> list:
