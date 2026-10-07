@@ -40,14 +40,25 @@ class TestApply:
     def test_apply_switches_the_right_module_on(self, monkeypatch):
         mods = fake_modules(monkeypatch)
         touched = apply("screencast")
-        assert touched == ["screencast_layout"]
+        assert "screencast_layout" in touched
         assert mods["screencast_layout"].ENABLED is True
-        assert mods["split_layout"].ENABLED is False
 
-    def test_apply_none_touches_nothing(self, monkeypatch):
+    def test_apply_none_still_enables_the_per_scene_two_shot_check(self, monkeypatch):
+        # An edited podcast samples as close-ups ("none") but has wide
+        # two-shots; split_layout's own per-scene guards decide those.
         mods = fake_modules(monkeypatch)
-        assert apply("none") == []
-        assert not any(m.ENABLED for m in mods.values())
+        assert set(apply("none")) == {"split_layout", "active_speaker"}
+        assert mods["split_layout"].ENABLED is True
+        assert mods["active_speaker"].ENABLED is True
+        assert mods["screencast_layout"].ENABLED is False
+
+    def test_a_failed_pick_still_enables_the_per_scene_check(self, monkeypatch):
+        mods = fake_modules(monkeypatch)
+        monkeypatch.setattr(layout_picker, "ENABLED", True)
+        monkeypatch.setattr(layout_picker, "SHADOW", False)
+        monkeypatch.setattr(layout_picker, "pick", lambda *a, **k: "none")
+        layout_picker.pick_and_apply("v.mp4", 60)
+        assert mods["split_layout"].ENABLED is True
 
     def test_apply_never_disables_an_explicit_choice(self, monkeypatch):
         # An operator who set SPLIT_LAYOUT=1 gets stacking even if the model
@@ -57,7 +68,8 @@ class TestApply:
         assert mods["split_layout"].ENABLED is True
 
     def test_already_enabled_modules_are_not_reported_as_touched(self, monkeypatch):
-        fake_modules(monkeypatch, screencast_layout=True)
+        fake_modules(monkeypatch, screencast_layout=True, split_layout=True,
+                     active_speaker=True)
         assert apply("screencast") == []
 
     def test_split_enables_both_modules(self, monkeypatch):

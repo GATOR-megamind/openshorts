@@ -69,10 +69,28 @@ DECISION_FLAGS = {
 
 VALID = set(DECISION_FLAGS)
 
+# On for every video the picker sees, whatever it answers. These modules decide
+# per SCENE with their own guards (split_layout: only scenes already GENERAL, two
+# faces of a real size side by side in the same frame for half the samples, at
+# least 2.5 s; active_speaker: both mouths move). The video-level "split" answer
+# is the wrong gate for them: an edited podcast cuts between close-ups and a wide
+# two-shot, the sampled frames are mostly close-ups, the model rightly answers
+# "none", and every two-shot rendered GENERAL, two small people floating in a
+# blurred strip. On such a podcast the per-scene check stacks the 39 s two-shot
+# and leaves the close-ups on TRACK.
+PER_SCENE_FLAGS = ["split_layout", "active_speaker"]
+
 
 def _module_flags(decision):
     """Modules to enable for a decision, ignoring anything unrecognised."""
     return DECISION_FLAGS.get(str(decision or "none").strip().lower(), [])
+
+
+def _flags_to_enable(decision):
+    """PER_SCENE_FLAGS plus whatever this decision adds, without repeats."""
+    flags = list(PER_SCENE_FLAGS)
+    flags += [f for f in _module_flags(decision) if f not in flags]
+    return flags
 
 
 def apply(decision):
@@ -80,7 +98,8 @@ def apply(decision):
 
     Deliberately additive: an operator who set SPLIT_LAYOUT=1 for a job wants
     stacking regardless of what the model thinks, and a model that says "none"
-    must not quietly undo that.
+    must not quietly undo that. PER_SCENE_FLAGS go on for every decision,
+    including "none" and a failed call.
     """
     import active_speaker
     import screencast_layout
@@ -91,7 +110,7 @@ def apply(decision):
                "active_speaker": active_speaker}
 
     touched = []
-    for name in _module_flags(decision):
+    for name in _flags_to_enable(decision):
         module = modules.get(name)
         if module is not None and not getattr(module, "ENABLED", False):
             module.ENABLED = True
@@ -233,7 +252,7 @@ def pick_and_apply(video_path, video_duration):
         # One greppable line per job. Deliberately not routed through the
         # analytics module: that one is opt-in and host-scoped, and a shadow
         # run has to work on any deployment, including self-hosted.
-        would = _module_flags(decision)
+        would = _flags_to_enable(decision)
         print(f"[layout-shadow] decision={decision} "
               f"would_enable={','.join(would) if would else 'none'} "
               f"duration={video_duration:.0f}s")
