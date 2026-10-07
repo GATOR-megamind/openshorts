@@ -42,8 +42,13 @@ const PLAN_BLURBS = {
 // single free minute and pasted a 21-90 min video (93 of 99 sampled,
 // 16-sep-2026): they are being asked to pay before seeing one clip. The offer
 // turns that wall into a first run; the plans stay the way to the whole video.
+// source: the surface that opened it, when it is not the wall or the generic
+// upsell (WatermarkModal passes 'watermark'), so CheckoutStarted can be split
+// by origin. highlight: the plan put forward; the watermark notice asked about
+// the cheapest way out, so it opens on starter instead of creator.
 export default function TopUpModal({ onClose, required, remaining, partialMinutes = 0, onPartial = null,
-                                     context = 'wall' }) {
+                                     context = 'wall', source: sourceOverride = null,
+                                     highlight: highlightPlan = 'creator' }) {
   const [plans, setPlans] = useState([]);
   const [topups, setTopups] = useState([]);
   const [showTopups, setShowTopups] = useState(false);
@@ -73,7 +78,7 @@ export default function TopUpModal({ onClose, required, remaining, partialMinute
   // Stripe and abandoned" were indistinguishable. CheckoutStarted (click, same
   // meaning as PricingSection's) → CheckoutRedirected (we hold a Stripe URL) →
   // CheckoutFailed (we don't) separates them.
-  const source = isUpsell ? 'upsell' : 'wall';
+  const source = sourceOverride || (isUpsell ? 'upsell' : 'wall');
 
   const buy = async (entry, kind) => {
     setBusyPrice(entry.price_id);
@@ -145,13 +150,13 @@ export default function TopUpModal({ onClose, required, remaining, partialMinute
 
       <div className="grid sm:grid-cols-3 gap-3">
         {plans.map((entry) => {
-          const highlight = entry.plan === 'creator';
+          const highlight = entry.plan === highlightPlan;
           return (
             <div key={entry.price_id}
                  className={`relative card p-5 flex flex-col ${highlight ? 'border-brass' : ''}`}>
               {highlight && (
                 <span className="absolute -top-3 left-1/2 -translate-x-1/2 badge-float">
-                  Most popular
+                  {entry.plan === 'creator' ? 'Most popular' : 'Removes the mark'}
                 </span>
               )}
               <h3 className="font-display lowercase text-lg text-ink">{entry.plan}</h3>

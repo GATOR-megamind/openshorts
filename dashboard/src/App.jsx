@@ -439,7 +439,12 @@ function App() {
   // map on a backoff until the archived name matches the clip's new file, then it
   // can play from R2 again. Gives up quietly: staying on /videos is correct, just
   // slower, and is exactly what happens for self-hosted users all the time.
-  const openUpsell = () => { setTopUpInfo({ context: 'upsell' }); setShowTopUp(true); };
+  // opts.source / opts.highlight: which surface opened it (CheckoutStarted
+  // source) and which plan the modal puts forward (WatermarkModal: starter).
+  const openUpsell = (opts = {}) => {
+    setTopUpInfo({ context: 'upsell', source: opts.source, highlight: opts.highlight });
+    setShowTopUp(true);
+  };
 
   // The clips just landed on a free account: ask once, per job, whether they
   // want the mark off. A beat after the grid renders, so the first thing they
@@ -2491,6 +2496,8 @@ function App() {
           partialMinutes={topUpInfo.partialMinutes}
           onPartial={topUpInfo.onPartial}
           context={topUpInfo.context || 'wall'}
+          source={topUpInfo.source}
+          highlight={topUpInfo.highlight}
         />
       )}
       {showTrialUpgrade && (
