@@ -1351,8 +1351,34 @@ def auto_hook_clip(clip_path, clip, captions=None):
         return None
 
 
+def trim_subtitle_band(input_video, band):
+    """Copy of a cut clip without the source's burned-in subtitle band.
+
+    Returns the new path, or ``input_video`` unchanged when there is nothing to
+    trim or the encode fails (two layers of text beat no clip). The caller
+    deletes the copy. See burned_subtitles.py.
+    """
+    if not band:
+        return input_video
+    import burned_subtitles
+    root, ext = os.path.splitext(input_video)
+    out = f"{root}_nosubs{ext or '.mp4'}"
+    try:
+        subprocess.run(
+            ["ffmpeg", "-y", "-loglevel", "error", "-i", input_video,
+             "-vf", burned_subtitles.crop_filter(band),
+             *video_encode_args(QUALITY_FAST), "-c:a", "copy", out],
+            check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+            timeout=1800)
+        return out
+    except (subprocess.SubprocessError, OSError) as e:
+        print(f"   ⚠️ Could not trim the source subtitles ({e}) — rendering as is.")
+        return input_video
+
+
 def render_clip(input_video, final_output_video, output_format="auto",
-                force_strategy=None, crop_overrides=None, watermark=False):
+                force_strategy=None, crop_overrides=None, watermark=False,
+                subtitle_band=None):
     """Route a cut clip through the right renderer for the chosen output format.
     vertical/auto -> 9:16 reframe, square -> 1:1 reframe, horizontal -> keep.
     ``force_strategy`` (e.g. 'WIDE'/'TRACK') pins every scene's layout — the
@@ -1360,7 +1386,22 @@ def render_clip(input_video, final_output_video, output_format="auto",
     individual scenes by hand (the per-scene reframing editor) and wins over
     ``force_strategy`` for the scenes it names.
     ``watermark`` burns the free-plan mark into the result: inside the reframe
-    encode on the v2 path, as a separate pass (apply_watermark) otherwise."""
+    encode on the v2 path, as a separate pass (apply_watermark) otherwise.
+    ``subtitle_band`` (the job metadata's ``source_subtitle_band``) trims the
+    source's own burned-in subtitles off the bottom first, so our captions are
+    the only text layer. Every render from the source passes it: the job, the
+    recut and the editor's re-render."""
+    trimmed = trim_subtitle_band(input_video, subtitle_band)
+    try:
+        return _render_clip(trimmed, final_output_video, output_format,
+                            force_strategy, crop_overrides, watermark)
+    finally:
+        if trimmed != input_video and os.path.exists(trimmed):
+            os.remove(trimmed)
+
+
+def _render_clip(input_video, final_output_video, output_format,
+                 force_strategy, crop_overrides, watermark):
     if output_format == "horizontal":
         ok = finalize_clip_passthrough(input_video, final_output_video)
         if ok and watermark:
@@ -2329,6 +2370,24 @@ if __name__ == '__main__':
         except Exception as e:
             print(f"⚠️ Layout choice skipped ({e}) — using the default layout.")
 
+    # Subtitles already burned into the source: trim them off each cut clip so
+    # our captions are the only text layer (burned_subtitles.py). Only when we
+    # caption at all, and never on a vertical source, which is passed through.
+    source_subtitle_band = None
+    if (not args.skip_analysis
+            and os.environ.get("AUTO_CAPTIONS", "1").strip() != "0"):
+        try:
+            import burned_subtitles
+            _cap = cv2.VideoCapture(input_video)
+            _w = int(_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            _h = int(_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            _cap.release()
+            from reframe_v2 import source_already_fits
+            if not (_w and _h and source_already_fits(_w, _h, ASPECT_RATIO)):
+                source_subtitle_band = burned_subtitles.detect(input_video)
+        except Exception as e:
+            print(f"⚠️ Burned-in subtitle check skipped ({e}).")
+
     # 2. Decision: Analyze clips or process whole?
     if args.skip_analysis:
         print("⏩ Skipping analysis, processing entire video...")
@@ -2427,6 +2486,8 @@ if __name__ == '__main__':
             # --keep-original) or in uploads/ (upload jobs).
             clips_data['source_video'] = os.path.basename(input_video)
             clips_data['output_format'] = output_format
+            if source_subtitle_band:
+                clips_data['source_subtitle_band'] = source_subtitle_band
             metadata_file = os.path.join(output_dir, f"{video_title}_metadata.json")
             with open(metadata_file, 'w') as f:
                 json.dump(clips_data, f, indent=2)
@@ -2457,7 +2518,8 @@ if __name__ == '__main__':
                     # permanent: paying could not remove it from clips already
                     # made. Each worker writes only its own clip dict, so the
                     # re-dump after the pool is race-free.
-                    success = render_clip(clip_temp_path, clip_final_path, output_format)
+                    success = render_clip(clip_temp_path, clip_final_path, output_format,
+                                          subtitle_band=source_subtitle_band)
                     if success:
                         print(f"   🎞️ Clip {i+1} framed")
                     deliver_path = clip_final_path

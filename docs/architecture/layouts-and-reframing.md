@@ -31,6 +31,27 @@ spreadsheet from a corner ticker.
 `layout_picker.apply()` only **adds**: an explicit user choice is never turned
 off because the model said `none`.
 
+With the picker on, **the SPLIT check runs on every video**, whatever the model
+answers (`PER_SCENE_FLAGS`: `split_layout` + `active_speaker`). The video-level
+`split` answer was the wrong gate: an edited podcast cuts between close-ups and
+a wide two-shot, the 12 stills are mostly close-ups, the model rightly says
+`none`, and every two-shot rendered GENERAL (two small people in a blurred
+strip). `split_layout`'s own per-scene guards (below) decide each scene.
+
+## Subtitles already burned into the source (`burned_subtitles.py`)
+
+A re-uploaded TV show often carries its own subtitles in the picture; burning
+ours on top gave two text layers, theirs cut off at the sides by the 9:16 crop.
+When the job captions (`AUTO_CAPTIONS` not `0`) and the source is not vertical,
+one Gemini call on the picker's 12 stills asks, per frame, for the top of the
+subtitle text or null (logos, tickers, lower-thirds and scene text excluded).
+Present in at least 40% of the frames and starting below 75% of the height →
+`source_subtitle_band` in the job metadata, and `main.render_clip` trims that
+band off the bottom of the cut clip before reframing (one extra fast encode;
+cropping from the bottom keeps every face coordinate). The recut and the
+editor's re-render pass the same band, but only when captions go back on.
+`SUBTITLE_BAND_CHECK=0` disables it; any failure renders as before.
+
 ## Hook grounding for on-screen clips (`hook_grounding.py`)
 
 The hook and title come from the detail pass, which only reads the transcript, so

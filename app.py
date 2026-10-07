@@ -4361,7 +4361,10 @@ async def _rerender_locked(req: RerenderRequest, request: Request, job):
             reframe=True, output_format=data.get('output_format', 'auto'),
             force_strategy=force_strategy,
             captions_transcript=v_transcript,
-            captioner=_recut_captioner(clip))
+            captioner=_recut_captioner(clip),
+            # Trim the source's own subtitles only when ours go back on.
+            subtitle_band=(data.get('source_subtitle_band')
+                           if v_transcript else None))
 
     try:
         loop = asyncio.get_event_loop()
@@ -4727,7 +4730,10 @@ async def _reframe_locked(req: ReframeRequest, request: Request, job, overrides)
             force_strategy=force_strategy,
             crop_overrides=overrides,
             captions_transcript=v_transcript,
-            captioner=_recut_captioner(clip))
+            captioner=_recut_captioner(clip),
+            # Trim the source's own subtitles only when ours go back on.
+            subtitle_band=(data.get('source_subtitle_band')
+                           if v_transcript else None))
 
     try:
         loop = asyncio.get_event_loop()
