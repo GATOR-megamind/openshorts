@@ -258,9 +258,12 @@ def build_transcript_windows(transcript_result, video_duration,
     return windows
 
 
-def dedupe_overlapping(shorts, ratio=0.5):
+def dedupe_overlapping(shorts, ratio=0.25):
     """Drop clips that overlap an already-kept clip by ``ratio`` of the
     shorter one, keeping the higher ``predicted_score`` (earlier on a tie).
+
+    0.25, not 0.5: two clips sharing 25 s of 59 s (42%) both survived the old
+    bar and the same punchline came out twice in one batch.
 
     The detail prompt's DIVERSITY rule is the only thing that stopped two
     clips from sharing the same seconds, and a rule is not a guarantee: two

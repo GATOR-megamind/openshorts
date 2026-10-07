@@ -239,6 +239,11 @@ class TestDedupeOverlapping:
         a, b = self._clip(10, 40, 70), self._clip(35, 65, 85)
         assert dedupe_overlapping([a, b]) == [a, b]
 
+    def test_a_third_shared_counts_as_a_repeat(self):
+        # 25 s shared of 59 s: two clips of the same punchline.
+        a, b = self._clip(175.9, 234.5, 78), self._clip(209.7, 269.4, 70)
+        assert dedupe_overlapping([a, b]) == [a]
+
     def test_tie_keeps_the_earlier(self):
         a, b = self._clip(10, 40, 80), self._clip(15, 45, 80)
         assert dedupe_overlapping([a, b]) == [a]
