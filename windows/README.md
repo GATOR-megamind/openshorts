@@ -7,7 +7,7 @@
 5. Optional: run `powershell -ExecutionPolicy Bypass -File windows\Create-Desktop-Shortcut.ps1` to get an **OpenShorts** icon on the desktop.
 
 - `OpenShorts.bat update` rebuilds the images after a `git pull`.
-- Finished clips land in a **clips** folder on the desktop: the latest version of each clip, plus a `.txt` with the titles and descriptions the model wrote (`clip_export.py`). Job folders in `output\` are swept after a day; the desktop copies stay.
+- Finished clips land in a **clips** folder on the desktop, one folder per video (`<title> [<job id>]\clip_1.mp4`): the latest version of each clip, plus a `.txt` with the titles and descriptions the model wrote (`clip_export.py`). Job folders in `output\` are swept after a day; the desktop copies stay.
 - `Stop-OpenShorts.bat` stops the containers.
 - When `nvidia-smi` works, the launcher adds `docker-compose.gpu.yml`: CUDA transcription, NVENC encoding, and one job at a time (sized for an 8 GB card).
 - From a phone on the same Wi-Fi, open `http://<the PC's local IP>:5175`. Windows asks once whether to allow Docker through the firewall.

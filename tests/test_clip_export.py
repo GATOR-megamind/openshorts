@@ -30,13 +30,13 @@ def test_exports_latest_version_of_each_clip(tmp_path):
     _job(tmp_path)
     out = tmp_path / "clips"
     copied = clip_export.export_all(str(tmp_path / "output"), str(out), now=2000)
-    names = sorted(os.path.basename(p) for p in copied)
-    assert names == ["Talk_clip_1_abcdef12.mp4", "Talk_clip_2_abcdef12.mp4"]
-    assert (out / "Talk_clip_1_abcdef12.mp4").read_bytes() == b"final1"
-    assert (out / "Talk_clip_2_abcdef12.mp4").read_bytes() == b"raw2"
-    txt = (out / "Talk_clip_1_abcdef12.txt").read_text()
+    folder = out / "Talk [abcdef12]"
+    assert sorted(copied) == [str(folder / "clip_1.mp4"), str(folder / "clip_2.mp4")]
+    assert (folder / "clip_1.mp4").read_bytes() == b"final1"
+    assert (folder / "clip_2.mp4").read_bytes() == b"raw2"
+    txt = (folder / "clip_1.txt").read_text()
     assert "YouTube title: First" in txt and "Hook: Wait for it" in txt
-    assert "TikTok: Second #fyp" in (out / "Talk_clip_2_abcdef12.txt").read_text()
+    assert "TikTok: Second #fyp" in (folder / "clip_2.txt").read_text()
 
 
 def test_job_still_rendering_is_not_exported(tmp_path):
@@ -52,8 +52,16 @@ def test_second_pass_copies_nothing_until_a_newer_edit(tmp_path):
     assert clip_export.export_all(str(tmp_path / "output"), str(out), now=2100) == []
     _touch(job / "edited_Talk_clip_2.mp4", 3000, b"edit2")
     copied = clip_export.export_all(str(tmp_path / "output"), str(out), now=4000)
-    assert [os.path.basename(p) for p in copied] == ["Talk_clip_2_abcdef12.mp4"]
-    assert (out / "Talk_clip_2_abcdef12.mp4").read_bytes() == b"edit2"
+    assert copied == [str(out / "Talk [abcdef12]" / "clip_2.mp4")]
+    assert (out / "Talk [abcdef12]" / "clip_2.mp4").read_bytes() == b"edit2"
+
+
+def test_each_job_gets_its_own_folder(tmp_path):
+    _job(tmp_path, job_id="aaaaaaaa11")
+    _job(tmp_path, job_id="bbbbbbbb22")
+    out = tmp_path / "clips"
+    clip_export.export_all(str(tmp_path / "output"), str(out), now=2000)
+    assert sorted(os.listdir(out)) == ["Talk [aaaaaaaa]", "Talk [bbbbbbbb]"]
 
 
 def test_missing_output_dir_is_fine(tmp_path):

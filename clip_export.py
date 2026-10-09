@@ -2,8 +2,10 @@
 
 Job directories are swept after JOB_RETENTION_SECONDS, and their clips sit
 among temp files, intermediate renders and every edited version. This keeps
-one copy per clip, its latest version, in EXPORT_DIR, next to a .txt with the
-title and descriptions the model wrote for it:
+one copy per clip, its latest version, next to a .txt with the title and
+descriptions the model wrote for it, in one folder per job (per source video):
+
+    EXPORT_DIR/<video title> [<job id>]/clip_1.mp4, clip_1.txt, ...
 
     python clip_export.py              # loop: OUTPUT_DIR=output EXPORT_DIR=clips
     python clip_export.py --once
@@ -88,12 +90,15 @@ def export_job(job_dir, export_dir, now=None):
         return []
     shorts = _shorts(job_dir)
     job_tag = os.path.basename(os.path.normpath(job_dir))[:8]
+    # The undecorated "<title>_clip_N.mp4" is the shortest name of any clip.
+    shortest = os.path.basename(min((v for vs in groups.values() for v in vs), key=len))
+    title = _CLIP_RE.sub("", shortest).strip(" .") or "video"
+    folder = os.path.join(export_dir, f"{title} [{job_tag}]")
+    os.makedirs(folder, exist_ok=True)
     copied = []
     for number, versions in sorted(groups.items()):
         latest = max(versions, key=os.path.getmtime)
-        # The undecorated "<title>_clip_N.mp4" is the shortest name in the group.
-        stem = os.path.basename(min(versions, key=len))[:-len(".mp4")]
-        dest = os.path.join(export_dir, f"{stem}_{job_tag}.mp4")
+        dest = os.path.join(folder, f"clip_{number}.mp4")
         if os.path.exists(dest) and os.path.getmtime(dest) >= os.path.getmtime(latest):
             continue
         _copy_atomic(latest, dest)
