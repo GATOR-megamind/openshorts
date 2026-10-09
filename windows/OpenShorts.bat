@@ -21,7 +21,11 @@ if errorlevel 1 (
 )
 :docker_ready
 
-set "COMPOSE=docker compose -f docker-compose.yml"
+rem Finished clips are copied to a "clips" folder on the desktop.
+for /f "usebackq delims=" %%d in (`powershell -NoProfile -Command "[Environment]::GetFolderPath('Desktop')"`) do set "CLIPS_DIR=%%d\clips"
+if not exist "%CLIPS_DIR%" mkdir "%CLIPS_DIR%"
+
+set "COMPOSE=docker compose -f docker-compose.yml -f docker-compose.export.yml"
 nvidia-smi >nul 2>&1 && set "COMPOSE=%COMPOSE% -f docker-compose.gpu.yml"
 
 set "BUILD="

@@ -1,0 +1,18 @@
+# Copies each finished clip (latest version) plus a .txt with its titles out of
+# output/ into CLIPS_DIR, so they outlive the job sweep. See clip_export.py.
+#
+#   CLIPS_DIR=/path/to/clips docker compose -f docker-compose.yml -f docker-compose.export.yml up -d
+services:
+  clip-export:
+    image: python:3.11-slim
+    container_name: openshorts-clip-export
+    working_dir: /app
+    command: ["python", "clip_export.py"]
+    environment:
+      - OUTPUT_DIR=/app/output
+      - EXPORT_DIR=/clips
+    volumes:
+      - ./clip_export.py:/app/clip_export.py:ro
+      - ./output:/app/output:ro
+      - ${CLIPS_DIR:-./clips}:/clips
+    restart: unless-stopped
