@@ -3,7 +3,7 @@ import {
   Rocket, Youtube, Loader2, RefreshCw, Play, CheckCircle2, AlertTriangle,
   Clock, Scissors, Send, ExternalLink, FolderOpen, Lock,
 } from 'lucide-react';
-import { apiJson } from '../lib/api';
+import { apiJson, openQuotaWall } from '../lib/api';
 import { track } from '../lib/analytics';
 
 // Autopilot: every new video on the user's connected YouTube channel is turned
@@ -190,7 +190,10 @@ export default function AutopilotTab({ onOpenProject, onUpgrade, justConnected }
       if (r.status === 'processing') setListNotice(`Clipping “${video.title || 'your video'}”. We will email you when the clips are ready.`);
       else setListNotice(`Not clipped: ${REASON_TEXT[r.reason] || r.reason || r.status}.`);
     } catch (e) {
-      if (e?.name === 'QuotaError') setListNotice('You are out of minutes for this period.');
+      if (e?.name === 'QuotaError') {
+        setListNotice('You are out of minutes for this period.');
+        openQuotaWall(e, 'autopilot_run');
+      }
       else setListNotice(errText(e, 'Could not start the job.'));
     } finally {
       setRunning(null);

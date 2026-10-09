@@ -7,6 +7,7 @@ import { capture as captureAttribution } from './lib/attribution'
 import PricingPage from './components/PricingPage'
 import AccountPage from './components/AccountPage'
 import LoginModal from './components/LoginModal'
+import { readPendingPlan } from './lib/pendingPlan'
 import { applyConsent } from './lib/consent'
 import CookieBanner from './components/CookieBanner'
 
@@ -30,7 +31,14 @@ function PageShell({ title, children }) {
 }
 
 function PricingView() {
+  const { isSignedIn, loading } = useAuth();
+  // A plan picked on the landing while signed out lands here: ask for the
+  // sign-in straight away instead of a second click on the same plan.
   const [showLogin, setShowLogin] = useState(false);
+  useEffect(() => { window.scrollTo(0, 0); }, []);
+  useEffect(() => {
+    if (!loading && !isSignedIn && readPendingPlan()) setShowLogin(true);
+  }, [loading, isSignedIn]);
   return (
     <PageShell>
       <PricingPage onRequireLogin={() => setShowLogin(true)} />

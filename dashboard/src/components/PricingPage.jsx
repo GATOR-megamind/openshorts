@@ -93,10 +93,10 @@ const TRUST_CARDS = [
     ),
   },
   {
-    eyebrow: 'no watermarks · no per-clip credits',
+    eyebrow: 'no watermark on paid plans · no per-clip credits',
     body: (
       <>
-        Clips export clean — no watermarks. Plans meter minutes of input video per billing
+        Paid plans export clean clips, with no watermark. Plans meter minutes of input video per billing
         period, never per-clip credits.
       </>
     ),

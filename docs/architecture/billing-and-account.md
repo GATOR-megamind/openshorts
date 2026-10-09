@@ -38,6 +38,14 @@ balance, `reserve_process_minutes` decides on its own (the client sends no
   first N minutes as if the user had taken the wall's offer. Tracked
   client-side as `AutoPartial`.
 
+## Paths to a plan (`TopUpModal.jsx`, `PricingSection.jsx`)
+
+- Every surface that opens the plan modal passes a `source` (`meter`, `menu`, `results_banner`, `partial_banner`, `partial_processing`, `first_video_banner`, `watermark`, `autopilot`, `queue`, `thumbnails`, `clip_editor`, `autopilot_run`); it rides on `UpsellModalSeen`/`QuotaWallSeen` and on the checkout events, so each surface can be measured on its own.
+- A 402 outside the main clip flow calls `lib/api.openQuotaWall(err, source)`; the app shell listens for it and opens the quota wall instead of an error string.
+- The wall's "this video is N min long" copy only applies when the user still has at least a minute: the pre-probe 402 sends a floor of 1 for `minutes_required`, which is not a duration.
+- A plan picked while signed out is stashed (`lib/pendingPlan.js`, two-hour TTL). `#/pricing` opens the sign-in at once, AuthContext sends the new session back to `#/pricing`, and the section opens that checkout (`CheckoutStarted` with `resumed=1`).
+- Emails link to `#/pricing?src=email_<kind>`; checkouts from there are tagged `pricing_email_<kind>`. `/pricing` redirects to `/#/pricing` in nginx.
+
 ## Lifecycle emails (`cloud/lifecycle.py`)
 
 Welcome (minutes after sign-up), first-clip nudge (24-72 h, nothing processed),

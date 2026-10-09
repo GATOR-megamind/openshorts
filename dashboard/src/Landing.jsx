@@ -437,6 +437,11 @@ export default function Landing({ onLaunchApp }) {
             <a href="/tools" className="hover:text-ink transition-colors">Free tools</a>
           </div>
           <div className="flex items-center gap-3">
+            {billingEnabled && (
+              <a href="#pricing" className="md:hidden text-sm lowercase text-muted hover:text-ink transition-colors">
+                Pricing
+              </a>
+            )}
             <a
               href="https://github.com/mutonby/openshorts"
               target="_blank"
@@ -506,7 +511,7 @@ export default function Landing({ onLaunchApp }) {
             </div>
 
             <p className="text-sm text-muted lowercase">
-              paid plans from $12/mo without watermark. prefer to run it yourself?{' '}
+              <a href="#pricing" className="underline underline-offset-2 hover:text-ink">paid plans from $12/mo</a> without watermark. prefer to run it yourself?{' '}
               <a
                 href="https://github.com/mutonby/openshorts"
                 target="_blank"

@@ -1,7 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Loader2 } from 'lucide-react';
 import { apiJson } from '../lib/api';
-import { track } from '../lib/analytics';
 import Modal from './ui/Modal';
 
 // Mirror cloud/onboarding.SOURCES / GOALS / ROLES.
@@ -73,7 +72,8 @@ export default function OnboardingSurvey({ onDone }) {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       });
     } catch (_) { /* never block onboarding on the survey */ }
-    if (!skipped) track('SignupSurveyAnswered', { props: { source: source || undefined, role: role || undefined, goals: goals.join(',') || undefined } });
+    // SignupSurveyAnswered is emitted server-side (cloud/onboarding.py) when
+    // the answers are saved; tracking it here too counted every answer twice.
     onDone();
   };
 

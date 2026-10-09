@@ -46,18 +46,22 @@ const PLAN_BLURBS = {
 // upsell (WatermarkModal passes 'watermark'), so CheckoutStarted can be split
 // by origin. highlight: the plan put forward; the watermark notice asked about
 // the cheapest way out, so it opens on starter instead of creator.
+// partialJob: { processed_minutes, total_minutes } of the job on screen when the
+// "clip the whole video" banner opened it, so the copy talks about the rest of
+// that video instead of the watermark.
 export default function TopUpModal({ onClose, required, remaining, partialMinutes = 0, onPartial = null,
                                      context = 'wall', source: sourceOverride = null,
-                                     highlight: highlightPlan = 'creator' }) {
+                                     highlight: highlightPlan = 'creator', partialJob = null }) {
   const [plans, setPlans] = useState([]);
   const [topups, setTopups] = useState([]);
   const [showTopups, setShowTopups] = useState(false);
   const [busyPrice, setBusyPrice] = useState(null);
   const isUpsell = context === 'upsell';
+  const source = sourceOverride || (isUpsell ? 'upsell' : 'wall');
 
   useEffect(() => {
     track(isUpsell ? 'UpsellModalSeen' : 'QuotaWallSeen',
-          { props: { required: required ?? null, remaining: remaining ?? null } });
+          { props: { required: required ?? null, remaining: remaining ?? null, source } });
     apiJson('/api/billing/plans')
       .then((d) => {
         const monthly = (d.plans || []).filter((p) => p.interval === 'month');
@@ -78,7 +82,6 @@ export default function TopUpModal({ onClose, required, remaining, partialMinute
   // Stripe and abandoned" were indistinguishable. CheckoutStarted (click, same
   // meaning as PricingSection's) → CheckoutRedirected (we hold a Stripe URL) →
   // CheckoutFailed (we don't) separates them.
-  const source = sourceOverride || (isUpsell ? 'upsell' : 'wall');
 
   const buy = async (entry, kind) => {
     setBusyPrice(entry.price_id);
@@ -114,24 +117,36 @@ export default function TopUpModal({ onClose, required, remaining, partialMinute
     style: 'currency', currency: (c || 'usd').toUpperCase(), maximumFractionDigits: 0,
   }).format((a || 0) / 100);
 
-  const blockedByLength = typeof required === 'number' && typeof remaining === 'number';
+  // A video longer than the minutes left. With under a minute left the 402
+  // comes before the probe (no duration yet, minutes_required is a floor of 1),
+  // so that case reads as "out of minutes", not "this video is 1 min long".
+  const blockedByLength = typeof required === 'number' && typeof remaining === 'number'
+    && remaining >= 1 && required > remaining;
   const partialOffer = !isUpsell && partialMinutes > 0 && typeof onPartial === 'function';
   const remainingShown = Math.max(0, Math.round((remaining || 0) * 10) / 10);
 
   return (
     <Modal isOpen onClose={onClose} eyebrow="UPGRADE"
-           title={isUpsell ? 'Keep your clips forever' : 'Your video is ready to clip'} size="xl">
+           title={isUpsell
+             ? (partialJob ? 'Clip the whole video' : 'Keep your clips forever')
+             : (blockedByLength ? 'Your video is ready to clip' : "You've used this month's minutes")}
+           size="xl">
       {/* Goal-gradient framing: they're one step from the thing they came for. */}
       <p className="text-muted text-sm mb-5">
         {isUpsell
-          ? <>Every clip comes out <b className="text-ink font-medium">ready to post</b> and stays in your
-              library for good. On the free plan they carry a watermark and are deleted after 7 days;
-              upgrade now and the clips you already made <b className="text-ink font-medium">lose the mark on the spot</b>.</>
+          ? (partialJob
+            ? <>These clips come from the first <b className="text-ink font-medium">{partialJob.processed_minutes} min</b>{' '}
+                of a {partialJob.total_minutes}-min video. A plan gives you the minutes to clip{' '}
+                <b className="text-ink font-medium">all of it</b>, with no watermark, and the clips you already
+                made lose the mark on the spot.</>
+            : <>Every clip comes out <b className="text-ink font-medium">ready to post</b> and stays in your
+                library for good. On the free plan they carry a watermark and are deleted after 7 days;
+                upgrade now and the clips you already made <b className="text-ink font-medium">lose the mark on the spot</b>.</>)
           : blockedByLength
             ? <>This video is <b className="text-ink font-medium">{required} min</b> long and you have{' '}
-                <b className="text-ink font-medium">{remainingShown} min</b> this month. Pick a plan and the
-                whole video starts rendering right away.</>
-            : <>You've used your free minutes for this month. Pick a plan and keep clipping right away.</>}
+                <b className="text-ink font-medium">{remainingShown} min</b> left this month. Pick a plan and
+                clip the whole video.</>
+            : <>Your minutes renew next month. Pick a plan to keep clipping now.</>}
       </p>
 
       {partialOffer && (

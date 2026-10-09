@@ -3,6 +3,7 @@ import { Check, Loader2, Zap, Cpu, KeyRound, Send, HardDrive, Bot } from 'lucide
 import { useAuth } from '../contexts/AuthContext';
 import { apiJson } from '../lib/api';
 import { track } from '../lib/analytics';
+import { stashPendingPlan, readPendingPlan, clearPendingPlan } from '../lib/pendingPlan';
 import SegmentedControl from './ui/SegmentedControl';
 
 const PLAN_ORDER = ['starter', 'creator', 'pro'];
@@ -14,6 +15,13 @@ const PLAN_BLURB = {
 const HIGHLIGHT = 'creator';
 const FREE_MINUTES = 20;
 
+
+// Emails link to #/pricing?src=email_<kind>: keep that origin on the checkout
+// events so a click from an email is not counted as the pricing page itself.
+const pricingSource = () => {
+  const src = new URLSearchParams((window.location.hash.split('?')[1]) || '').get('src') || '';
+  return /^[a-z_]{1,32}$/.test(src) ? `pricing_${src}` : 'pricing';
+};
 
 const fmt = (amount, currency) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: (currency || 'usd').toUpperCase(), maximumFractionDigits: 0 }).format((amount || 0) / 100);
@@ -33,12 +41,18 @@ export default function PricingSection({ onRequireLogin }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const checkout = async (entry) => {
-    if (!isSignedIn) { onRequireLogin?.(entry.price_id); return; }
+  const checkout = async (entry, { resumed = false } = {}) => {
+    if (!isSignedIn) {
+      stashPendingPlan(entry);
+      track('CheckoutLoginRequired', { props: { plan: entry.plan, interval: entry.interval } });
+      onRequireLogin?.(entry.price_id);
+      return;
+    }
     setBusyPrice(entry.price_id);
     // `source` segments this surface from the two modals (see TopUpModal), which
-    // now emit the same three events.
-    const props = { plan: entry.plan, interval: entry.interval, source: 'pricing' };
+    // now emit the same three events. `resumed`: the plan was picked before
+    // signing in and the checkout opened on its own after it.
+    const props = { plan: entry.plan, interval: entry.interval, source: pricingSource(), resumed: resumed ? '1' : '0' };
     track('CheckoutStarted', { props });
     // Stash the price so we can attach real revenue to the Subscribed goal when
     // the user returns from Stripe (see AccountPage's checkout=success handler).
@@ -61,6 +75,18 @@ export default function PricingSection({ onRequireLogin }) {
       alert(e?.detail || 'Could not start checkout. Please try again.');
     }
   };
+
+  // Back from sign-in with a plan picked before it: open that checkout.
+  useEffect(() => {
+    if (!isSignedIn || plans.length === 0) return;
+    const pending = readPendingPlan();
+    if (!pending) return;
+    clearPendingPlan();
+    const entry = plans.find((p) => p.price_id === pending.price_id);
+    if (entry) checkout(entry, { resumed: true });
+    // checkout is recreated every render; the stash makes this run once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSignedIn, plans]);
 
   if (loading) {
     return <div className="flex justify-center py-16"><Loader2 className="animate-spin text-brass" /></div>;
@@ -100,7 +126,7 @@ export default function PricingSection({ onRequireLogin }) {
             <li className="flex items-start gap-2"><Check size={16} className="text-muted shrink-0 mt-0.5" /> <span className="text-muted">Watermark · clips kept 7 days</span></li>
           </ul>
           <button
-            onClick={() => { if (!isSignedIn) { onRequireLogin?.(null); } else { window.location.hash = ''; } }}
+            onClick={() => { window.location.hash = '#app'; }}
             className="w-full btn-ghost"
           >
             Start free

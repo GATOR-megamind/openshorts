@@ -265,7 +265,7 @@ def _maybe_send_quota_email(user):
         return
     _last_quota_email[str(user.id)] = now
     from cloud.emails import send_out_of_minutes_email
-    upgrade_url = f"{_cloud_config.settings.frontend_url}/#/pricing"
+    upgrade_url = f"{_cloud_config.settings.frontend_url}/#/pricing?src=email_quota"
     asyncio.create_task(send_out_of_minutes_email(user.email, upgrade_url, user.id))
 
 

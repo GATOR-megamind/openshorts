@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Upload, Image, Loader2, Send, Check, Download, ArrowRight, ArrowLeft, Sparkles, Video, Type, X, Plus, MessageSquare, FileText, Youtube, AlertCircle, Settings } from 'lucide-react';
 import { getApiUrl } from '../config';
-import { apiFetch } from '../lib/api';
+import { apiFetch, QuotaError, openQuotaWall } from '../lib/api';
 import StepIndicator from './ui/StepIndicator';
 import SegmentedControl from './ui/SegmentedControl';
 
@@ -300,6 +300,7 @@ export default function ThumbnailStudio({ geminiApiKey, uploadPostKey, uploadUse
       }
       setGeneratedThumbnails(data.thumbnails);
     } catch (e) {
+      if (e instanceof QuotaError) { openQuotaWall(e, 'thumbnails'); return; }
       alert(`Generation failed: ${e.message}`);
     } finally {
       setIsGenerating(false);

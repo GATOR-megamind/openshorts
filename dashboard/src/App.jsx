@@ -29,7 +29,7 @@ import AutopilotTab from './components/AutopilotTab';
 import ProfileMenu from './components/ProfileMenu';
 import Modal from './components/ui/Modal';
 import { useAuth } from './contexts/AuthContext';
-import { apiFetch, apiJson, QuotaError } from './lib/api';
+import { apiFetch, apiJson, QuotaError, QUOTA_WALL_EVENT } from './lib/api';
 import { track } from './lib/analytics';
 
 // Enhanced "Encryption" using XOR + Base64 with a Salt
@@ -441,10 +441,28 @@ function App() {
   // slower, and is exactly what happens for self-hosted users all the time.
   // opts.source / opts.highlight: which surface opened it (CheckoutStarted
   // source) and which plan the modal puts forward (WatermarkModal: starter).
+  // opts.partialJob: the trimmed job on screen, so the modal sells the rest of it.
   const openUpsell = (opts = {}) => {
-    setTopUpInfo({ context: 'upsell', source: opts.source, highlight: opts.highlight });
+    setTopUpInfo({ context: 'upsell', source: opts.source, highlight: opts.highlight,
+                   partialJob: opts.partialJob || null });
     setShowTopUp(true);
   };
+
+  // Out-of-minutes errors from the thumbnail studio, clip editor and autopilot
+  // (lib/api.openQuotaWall) open the same wall as the main clip flow.
+  const meStatus = me?.status;
+  useEffect(() => {
+    if (!isManaged) return undefined;
+    const onWall = (ev) => {
+      refreshMe();
+      if (meStatus === 'trialing') { setShowTrialUpgrade(true); return; }
+      const d = ev.detail || {};
+      setTopUpInfo({ context: 'wall', required: d.required, remaining: d.remaining, source: d.source });
+      setShowTopUp(true);
+    };
+    window.addEventListener(QUOTA_WALL_EVENT, onWall);
+    return () => window.removeEventListener(QUOTA_WALL_EVENT, onWall);
+  }, [isManaged, meStatus, refreshMe]);
 
   // The clips just landed on a free account: ask once, per job, whether they
   // want the mark off. A beat after the grid renders, so the first thing they
@@ -452,11 +470,13 @@ function App() {
   useEffect(() => {
     if (status !== 'complete' || plan !== 'free' || !isManaged || !jobId) return;
     if (!(results?.clips?.length > 0)) return;
+    // Not on top of the tutorial's celebrate step: it shows once that closes.
+    if (tutorialPhase === 'coach' || tutorialPhase === 'celebrate') return;
     if (wmNoticedJobRef.current === jobId || watermarkNoticeDismissed(jobId)) return;
     wmNoticedJobRef.current = jobId;
     const t = setTimeout(() => { if (jobIdRef.current === jobId) setShowWmNotice(true); }, 2500);
     return () => clearTimeout(t);
-  }, [status, plan, isManaged, jobId, results?.clips?.length]);
+  }, [status, plan, isManaged, jobId, results?.clips?.length, tutorialPhase]);
 
   // Paying re-points the clips already on screen at their clean twins (the API
   // does it from the Stripe webhook, a few seconds after the plan flips). Chase
@@ -1465,7 +1485,7 @@ function App() {
                 failing against the quota wall. */}
             {billingEnabled && isManaged && (
               <UsageMeter onClick={() => {
-                if (plan === 'free') { setTopUpInfo({ context: 'upsell' }); setShowTopUp(true); }
+                if (plan === 'free') openUpsell({ source: 'meter' });
                 else { window.location.hash = '#/account'; }
               }} />
             )}
@@ -1481,7 +1501,7 @@ function App() {
                 Sign in
               </button>
             )}
-            {billingEnabled && isSignedIn && <ProfileMenu />}
+            {billingEnabled && isSignedIn && <ProfileMenu onUpgrade={isManaged ? openUpsell : null} />}
 
             {/* Hidden below sm: the standing banner underneath already says the
                 same thing, and two warnings in a 360px header is just noise. */}
@@ -1928,7 +1948,7 @@ function App() {
                 {isSignedIn ? (
                   <AutopilotTab
                     onOpenProject={restoreProject}
-                    onUpgrade={() => setShowPlanChoice(true)}
+                    onUpgrade={() => (isManaged ? openUpsell({ source: 'autopilot' }) : setShowPlanChoice(true))}
                     justConnected={autopilotConnected}
                   />
                 ) : (
@@ -2038,6 +2058,18 @@ function App() {
                   </span>
                 </div>
 
+                {/* Trimmed run: say it while it renders, not only once the
+                    clips land, so the shorter result is no surprise. */}
+                {status === 'processing' && partialJob && plan === 'free' && isManaged && (
+                  <button
+                    onClick={() => openUpsell({ source: 'partial_processing', partialJob })}
+                    className="mb-4 w-full text-left rounded-card border border-brass/40 bg-brass/5 px-4 py-3 text-sm hover:border-brass transition-colors"
+                  >
+                    <span className="text-ink">Clipping the first {partialJob.processed_minutes} of {partialJob.total_minutes} minutes with your free minutes.</span>{' '}
+                    <span className="text-brass font-medium">Clip the whole video →</span>
+                  </button>
+                )}
+
                 {/* Waiting in line: say where and for how long, and that paid
                     plans go first (they do: plan priority in the job queue). */}
                 {status === 'processing' && queueInfo && (
@@ -2049,7 +2081,7 @@ function App() {
                     </p>
                     {billingEnabled && !['starter', 'creator', 'pro'].includes(plan) && queueInfo.ahead > 0 && (
                       <button
-                        onClick={() => { track('QueueUpsellClick', { props: { position: String(queueInfo.position) } }); setShowPlanChoice(true); }}
+                        onClick={() => { track('QueueUpsellClick', { props: { position: String(queueInfo.position) } }); if (isManaged) openUpsell({ source: 'queue' }); else setShowPlanChoice(true); }}
                         className="mt-2 text-xs lowercase text-brass hover:underline"
                       >
                         paid plans skip the line →
@@ -2176,7 +2208,7 @@ function App() {
                         minutes only. Say so, and sell the rest of the video. */}
                     {partialJob && (
                       <button
-                        onClick={() => { setTopUpInfo({ context: 'upsell' }); setShowTopUp(true); }}
+                        onClick={() => openUpsell({ source: 'partial_banner', partialJob })}
                         className="w-full text-left px-3 py-2.5 rounded-input bg-paper3 border border-brass/40 hover:border-brass text-sm transition-colors"
                       >
                         <span className="text-ink">These clips come from the first {partialJob.processed_minutes} of {partialJob.total_minutes} minutes.</span>{' '}
@@ -2187,7 +2219,7 @@ function App() {
                         they're proud of the result, before asking for stars. */}
                     {firstVideoJob && !partialJob && (
                       <button
-                        onClick={() => { setTopUpInfo({ context: 'upsell' }); setShowTopUp(true); }}
+                        onClick={() => openUpsell({ source: 'first_video_banner' })}
                         className="w-full text-left px-3 py-2.5 rounded-input bg-paper3 border border-brass/40 hover:border-brass text-sm transition-colors"
                       >
                         <span className="text-ink">Your first video is on us: we clipped all of it.</span>{' '}
@@ -2197,7 +2229,7 @@ function App() {
                     )}
                     {plan === 'free' && !partialJob && !firstVideoJob && (
                       <button
-                        onClick={() => { setTopUpInfo({ context: 'upsell' }); setShowTopUp(true); }}
+                        onClick={() => openUpsell({ source: 'results_banner' })}
                         className="w-full text-left px-3 py-2.5 rounded-input bg-paper3 border border-brass/40 hover:border-brass text-sm transition-colors"
                       >
                         <span className="text-ink">Like these clips?</span>{' '}
@@ -2498,6 +2530,7 @@ function App() {
           context={topUpInfo.context || 'wall'}
           source={topUpInfo.source}
           highlight={topUpInfo.highlight}
+          partialJob={topUpInfo.partialJob}
         />
       )}
       {showTrialUpgrade && (

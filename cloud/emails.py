@@ -148,6 +148,7 @@ async def send_clips_expiring_email(email: str, clip_count: int):
     # the button quietly showed the marketing page; now that unknown paths
     # return a real 404 it fails visibly.
     dash = f"{settings.frontend_url}/#app"
+    pricing = f"{settings.frontend_url}/#/pricing?src=email_expiring"
     n = clip_count
     clips = f"{n} clip" + ("s" if n != 1 else "")
     html = f"""
@@ -157,7 +158,7 @@ async def send_clips_expiring_email(email: str, clip_count: int):
            {'are' if n != 1 else 'is'} about to expire. Two ways to keep them:</p>
         <ul style="line-height:1.9;padding-left:20px">
           <li><strong>Download them now</strong> from your dashboard, or</li>
-          <li><strong>Upgrade to Starter ($12/mo)</strong> &mdash; clips stored forever,
+          <li><a href="{pricing}"><strong>Upgrade to Starter ($12/mo)</strong></a> &mdash; clips stored forever,
               no watermark, and 100 minutes every month.</li>
         </ul>
         <p><a href="{dash}" style="display:inline-block;background:#111;color:#fff;
@@ -283,7 +284,7 @@ async def send_first_clip_email(user_id, email: str, first_video_minutes: int) -
 async def send_winback_email(user_id, email: str, promo_code: str = "",
                              promo_label: str = "") -> bool:
     """Two days after the first free video, still no plan."""
-    pricing = f"{settings.frontend_url}/#/pricing"
+    pricing = f"{settings.frontend_url}/#/pricing?src=email_winback"
     if promo_code:
         offer = (f"<p>Here's <strong>{promo_label or 'a discount'}</strong>: use code "
                  f"<strong style=\"font-family:monospace;font-size:16px\">{promo_code}</strong> "
