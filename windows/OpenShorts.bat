@@ -10,7 +10,16 @@ cd /d "%~dp0.."
 docker info >nul 2>&1
 if errorlevel 1 (
     echo Starting Docker Desktop...
-    start "" "%ProgramFiles%\Docker\Docker\Docker Desktop.exe"
+    rem "docker desktop start" finds Docker Desktop wherever it is installed;
+    rem older versions lack it, so fall back to the usual install paths.
+    docker desktop start >nul 2>&1
+    if errorlevel 1 (
+        if exist "%ProgramFiles%\Docker\Docker\Docker Desktop.exe" (
+            start "" "%ProgramFiles%\Docker\Docker\Docker Desktop.exe"
+        ) else if exist "%LOCALAPPDATA%\Programs\Docker\Docker\Docker Desktop.exe" (
+            start "" "%LOCALAPPDATA%\Programs\Docker\Docker\Docker Desktop.exe"
+        )
+    )
     for /l %%i in (1,1,60) do (
         timeout /t 3 /nobreak >nul
         docker info >nul 2>&1 && goto docker_ready
