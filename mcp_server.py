@@ -44,7 +44,9 @@ INSTRUCTIONS = (
     "reach the video and it is not needed. Typical flow: process_video -> "
     "poll get_job_status until 'completed' (a job takes minutes; poll every "
     "30-60s or pass webhook_url) -> list_clips -> optionally add_subtitles / "
-    "recut_clip / publish_clip. Check get_quota before large jobs. The user "
+    "recut_clip / publish_clip. Check get_quota before large jobs. When a "
+    "tool reports quota_exceeded or no_plan, tell the user and give them the "
+    "upgrade_url it returns: it opens the plan's checkout. The user "
     "must own the content or hold the rights: ask once, then pass "
     "confirm_rights=true."
 )
@@ -458,9 +460,14 @@ async def _tool_get_quota(client, args):
     if resp.status_code >= 400:
         return _api_error(resp), True
     data = resp.json()
-    return {"plan": data.get("plan"), "entitled": data.get("entitled"),
-            "minutes": data.get("minutes"),
-            "upload_post_profile": data.get("upload_post_profile")}, False
+    out = {"plan": data.get("plan"), "entitled": data.get("entitled"),
+           "minutes": data.get("minutes"),
+           "upload_post_profile": data.get("upload_post_profile")}
+    if data.get("plan") in (None, "free") or not data.get("entitled"):
+        # The link an agent hands the user when the free minutes run short.
+        from cloud.config import settings
+        out["upgrade_url"] = f"{settings.frontend_url}/#/pricing?plan=starter&src=api"
+    return out, False
 
 
 async def _tool_add_subtitles(client, args):

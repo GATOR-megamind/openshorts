@@ -44,6 +44,7 @@ balance, `reserve_process_minutes` decides on its own (the client sends no
 - A 402 outside the main clip flow calls `lib/api.openQuotaWall(err, source)`; the app shell listens for it and opens the quota wall instead of an error string.
 - The wall's "this video is N min long" copy only applies when the user still has at least a minute: the pre-probe 402 sends a floor of 1 for `minutes_required`, which is not a duration.
 - A plan picked while signed out is stashed (`lib/pendingPlan.js`, two-hour TTL). `#/pricing` opens the sign-in at once, AuthContext sends the new session back to `#/pricing`, and the section opens that checkout (`CheckoutStarted` with `resumed=1`).
+- `#/pricing?plan=<plan>[&interval=year]` opens that plan's checkout (through the sign-in when signed out) and drops the param afterwards.
 - Emails link to `#/pricing?src=email_<kind>`; checkouts from there are tagged `pricing_email_<kind>`. `/pricing` redirects to `/#/pricing` in nginx.
 
 ## Lifecycle emails (`cloud/lifecycle.py`)

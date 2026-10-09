@@ -66,3 +66,8 @@ Account → API keys and revoking it disconnects the app. The `/mcp` 401 carries
 Fired once per job from `run_job_wrapper` after the R2 archive so the payload can
 carry durable download links; survives redeploys via the resume manifest.
 `PUBLIC_API_URL` sets the absolute-URL base when behind a proxy.
+
+## Payment-required errors
+
+Every 402 (`quota_exceeded`, `no_plan`) goes through `app.payment_required`: it adds `upgrade_url` (`/#/pricing?plan=starter&src=api`, which opens the Starter checkout) and repeats the link inside `message`, since MCP clients and SDKs often show only the message. The MCP `get_quota` tool returns the same `upgrade_url` for free or unentitled users, and the server instructions tell the agent to hand that link to the user.
+

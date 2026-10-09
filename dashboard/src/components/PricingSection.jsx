@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Check, Loader2, Zap, Cpu, KeyRound, Send, HardDrive, Bot } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { apiJson } from '../lib/api';
@@ -33,6 +33,8 @@ export default function PricingSection({ onRequireLogin }) {
   const [interval, setInterval] = useState('month');
   const [loading, setLoading] = useState(true);
   const [busyPrice, setBusyPrice] = useState(null);
+  // One automatic checkout per page load (resumed plan or ?plan= link).
+  const autoCheckoutRef = useRef(false);
 
   useEffect(() => {
     apiJson('/api/billing/plans')
@@ -41,9 +43,9 @@ export default function PricingSection({ onRequireLogin }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const checkout = async (entry, { resumed = false } = {}) => {
+  const checkout = async (entry, { resumed = false, source = null } = {}) => {
     if (!isSignedIn) {
-      stashPendingPlan(entry);
+      stashPendingPlan(entry, source || pricingSource());
       track('CheckoutLoginRequired', { props: { plan: entry.plan, interval: entry.interval } });
       onRequireLogin?.(entry.price_id);
       return;
@@ -52,7 +54,7 @@ export default function PricingSection({ onRequireLogin }) {
     // `source` segments this surface from the two modals (see TopUpModal), which
     // now emit the same three events. `resumed`: the plan was picked before
     // signing in and the checkout opened on its own after it.
-    const props = { plan: entry.plan, interval: entry.interval, source: pricingSource(), resumed: resumed ? '1' : '0' };
+    const props = { plan: entry.plan, interval: entry.interval, source: source || pricingSource(), resumed: resumed ? '1' : '0' };
     track('CheckoutStarted', { props });
     // Stash the price so we can attach real revenue to the Subscribed goal when
     // the user returns from Stripe (see AccountPage's checkout=success handler).
@@ -83,10 +85,36 @@ export default function PricingSection({ onRequireLogin }) {
     if (!pending) return;
     clearPendingPlan();
     const entry = plans.find((p) => p.price_id === pending.price_id);
-    if (entry) checkout(entry, { resumed: true });
+    if (entry && !autoCheckoutRef.current) {
+      autoCheckoutRef.current = true;
+      checkout(entry, { resumed: true, source: pending.source });
+    }
     // checkout is recreated every render; the stash makes this run once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSignedIn, plans]);
+
+  // #/pricing?plan=starter[&interval=year]: a link that opens that plan's
+  // checkout (API/MCP errors hand it to agents). Signed out, it goes through the
+  // sign-in first like any plan click. The param is dropped so a reload or the
+  // back button from Stripe does not reopen the checkout.
+  useEffect(() => {
+    if (loading || plans.length === 0) return;
+    const [path, query = ''] = window.location.hash.split('?');
+    const params = new URLSearchParams(query);
+    const planName = params.get('plan');
+    if (!planName) return;
+    const entry = plans.find((p) => p.plan === planName && p.interval === (params.get('interval') || 'month'));
+    const source = pricingSource();
+    params.delete('plan');
+    params.delete('interval');
+    const rest = params.toString();
+    try { window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${path}${rest ? `?${rest}` : ''}`); } catch (_) { /* ignore */ }
+    if (entry && !autoCheckoutRef.current) {
+      autoCheckoutRef.current = true;
+      checkout(entry, { source });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, plans]);
 
   if (loading) {
     return <div className="flex justify-center py-16"><Loader2 className="animate-spin text-brass" /></div>;

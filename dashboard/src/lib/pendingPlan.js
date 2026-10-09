@@ -5,10 +5,12 @@
 const PENDING_PLAN_KEY = 'os_pending_plan';
 const PENDING_PLAN_TTL_MS = 2 * 60 * 60 * 1000;
 
-export function stashPendingPlan(entry) {
+// source: the checkout-event source to keep through the sign-in (e.g. a link an
+// API error handed out), so the resumed checkout is not counted as the page's.
+export function stashPendingPlan(entry, source = null) {
   try {
     localStorage.setItem(PENDING_PLAN_KEY, JSON.stringify({
-      price_id: entry.price_id, plan: entry.plan, interval: entry.interval, ts: Date.now(),
+      price_id: entry.price_id, plan: entry.plan, interval: entry.interval, source, ts: Date.now(),
     }));
   } catch (_) { /* ignore storage errors */ }
 }

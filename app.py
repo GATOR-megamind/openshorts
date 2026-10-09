@@ -230,6 +230,25 @@ def resolve_post_profile(forced_profile: Optional[str], client_profile: Optional
     return profile
 
 
+def upgrade_url(src: str = "api", plan: str = "starter") -> str:
+    """Pricing link that opens the plan's checkout (after sign-in if needed).
+
+    `src` tags the checkout events with where the link was handed out."""
+    return f"{_cloud_config.settings.frontend_url}/#/pricing?plan={plan}&src={src}"
+
+
+def payment_required(error: str, message: str, **extra) -> HTTPException:
+    """402 an AI agent can act on: ``upgrade_url`` plus the same link inside
+    ``message``, since MCP clients and SDKs often surface only the message."""
+    url = upgrade_url()
+    return HTTPException(status_code=402, detail={
+        "error": error,
+        "message": f"{message} Ask the user to choose a plan here: {url}",
+        "upgrade_url": url,
+        **extra,
+    })
+
+
 def gemini_missing_error():
     """The right 4xx when no Gemini key could be resolved.
 
@@ -237,10 +256,8 @@ def gemini_missing_error():
     (BYOK header simply missing).
     """
     if BILLING_ENABLED:
-        return HTTPException(status_code=402, detail={
-            "error": "no_plan",
-            "message": "This action needs an active plan. Choose a plan or add your own API key.",
-        })
+        return payment_required(
+            "no_plan", "This action needs an active OpenShorts plan (or the user's own API key).")
     return HTTPException(status_code=400, detail="Missing X-Gemini-Key header")
 
 
@@ -383,12 +400,9 @@ async def reserve_process_minutes(request, url, input_path, job_id, max_minutes=
     balance = await _metering.get_balance(user.id)
     if balance["remaining"] < 1:
         _maybe_send_quota_email(user)
-        raise HTTPException(status_code=402, detail={
-            "error": "quota_exceeded",
-            "minutes_required": 1,
-            "minutes_remaining": balance["remaining"],
-            "partial_minutes": 0,
-        })
+        raise payment_required(
+            "quota_exceeded", "The user is out of OpenShorts processing minutes for this period.",
+            minutes_required=1, minutes_remaining=balance["remaining"], partial_minutes=0)
 
     # Probe rate limit: probing costs a (cheap) proxied metadata call. The
     # 20-minute monthly quota is the real bound on free usage; there is no daily
@@ -470,12 +484,11 @@ async def reserve_process_minutes(request, url, input_path, job_id, max_minutes=
                 print(f"⚠️  Could not record first-video grant: {e}")
     except _metering.QuotaExceeded as e:
         _maybe_send_quota_email(user)
-        raise HTTPException(status_code=402, detail={
-            "error": "quota_exceeded",
-            "minutes_required": e.required,
-            "minutes_remaining": e.remaining,
-            "partial_minutes": partial_offer(e.required, e.remaining),
-        })
+        raise payment_required(
+            "quota_exceeded",
+            f"This video needs {e.required:g} minutes and the user has {float(e.remaining):.1f} left.",
+            minutes_required=e.required, minutes_remaining=e.remaining,
+            partial_minutes=partial_offer(e.required, e.remaining))
 
     return user.id, priority, reservation_id, user.plan, partial
 
@@ -500,11 +513,10 @@ async def reserve_managed_action(request, minutes, job_id, job_type):
         return await _metering.reserve_minutes(user.id, minutes, job_id, job_type)
     except _metering.QuotaExceeded as e:
         _maybe_send_quota_email(user)
-        raise HTTPException(status_code=402, detail={
-            "error": "quota_exceeded",
-            "minutes_required": e.required,
-            "minutes_remaining": e.remaining,
-        })
+        raise payment_required(
+            "quota_exceeded",
+            f"This needs {e.required:g} minutes and the user has {float(e.remaining):.1f} left.",
+            minutes_required=e.required, minutes_remaining=e.remaining)
 
 
 async def require_managed_entitlement(request):
@@ -5713,10 +5725,7 @@ async def _social_analytics_auth(request: Request, byok_profile: Optional[str]):
         if BILLING_ENABLED:
             # Signed-in free user (or no auth at all): social posting is
             # paid-only in cloud, so there are no posts to measure either.
-            raise HTTPException(status_code=402, detail={
-                "error": "no_plan",
-                "message": "Social analytics needs an active plan.",
-            })
+            raise payment_required("no_plan", "Social analytics needs an active OpenShorts plan.")
         raise HTTPException(status_code=400, detail="Missing X-Upload-Post-Key header")
     if forced_profile:
         user = await _user_from_request(request)
