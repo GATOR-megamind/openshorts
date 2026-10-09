@@ -7,5 +7,6 @@ $link = $shell.CreateShortcut((Join-Path $desktop "OpenShorts.lnk"))
 $link.TargetPath = $launcher
 $link.WorkingDirectory = $PSScriptRoot
 $link.WindowStyle = 7  # minimized: the console only shows progress
+$link.IconLocation = (Join-Path $PSScriptRoot "openshorts.ico") + ",0"
 $link.Save()
 Write-Host "Shortcut created on the desktop: OpenShorts"
