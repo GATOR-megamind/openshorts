@@ -1,0 +1,31 @@
+# NVIDIA GPU override for self-hosting on a single consumer card.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
+#
+# Builds the backend with the CUDA libraries (--build-arg GPU=1, see Dockerfile)
+# and hands it the card. Needs the NVIDIA driver on the host; on Windows,
+# Docker Desktop with the WSL 2 backend passes the GPU through on its own.
+#
+# Sized for an 8 GB card: a job peaks at ~4-6 GB of VRAM while it transcribes
+# (docs/architecture/jobs-and-deploys.md), so one job runs at a time and the
+# rest wait in the queue.
+services:
+  backend:
+    build:
+      context: .
+      args:
+        GPU: "1"
+    environment:
+      - TRANSCRIBE_BACKEND=parakeet
+      - WHISPER_MODEL=large-v3-turbo
+      - WHISPER_DEVICE=cuda
+      - WHISPER_COMPUTE=float16
+      - FFMPEG_ENCODER=auto
+      - MAX_CONCURRENT_JOBS=1
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
