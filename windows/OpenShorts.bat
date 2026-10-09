@@ -30,9 +30,12 @@ if errorlevel 1 (
 )
 :docker_ready
 
-rem Finished clips are copied to a "clips" folder on the desktop.
-for /f "usebackq delims=" %%d in (`powershell -NoProfile -Command "[Environment]::GetFolderPath('Desktop')"`) do set "CLIPS_DIR=%%d\clips"
+rem Finished clips (and campaign folders) live in %USERPROFILE%\clips: on the
+rem local disk, outside a desktop that OneDrive may sync. Set CLIPS_DIR before
+rem running this to use another folder. The desktop gets a shortcut to it.
+if not defined CLIPS_DIR set "CLIPS_DIR=%USERPROFILE%\clips"
 if not exist "%CLIPS_DIR%" mkdir "%CLIPS_DIR%"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0Create-Clips-Shortcut.ps1" "%CLIPS_DIR%" >nul 2>&1
 
 set "COMPOSE=docker compose -f docker-compose.yml -f docker-compose.export.yml"
 nvidia-smi >nul 2>&1 && set "COMPOSE=%COMPOSE% -f docker-compose.gpu.yml"

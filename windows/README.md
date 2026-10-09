@@ -7,7 +7,7 @@
 5. Optional: run `powershell -ExecutionPolicy Bypass -File windows\Create-Desktop-Shortcut.ps1` to get an **OpenShorts** icon on the desktop.
 
 - `OpenShorts.bat update` rebuilds the images after a `git pull`.
-- Finished clips land in a **clips** folder on the desktop, one folder per video (`<title> [<job id>]\clip_1.mp4`): the latest version of each clip, plus a `.txt` with the titles and descriptions the model wrote (`clip_export.py`). Job folders in `output\` are swept after a day; the desktop copies stay.
+- Finished clips land in `%USERPROFILE%\clips` (local disk, not the desktop OneDrive may sync; a **clips** shortcut goes on the desktop; set `CLIPS_DIR` to change it), one folder per video (`<title> [<job id>]\clip_1.mp4`): the latest version of each clip, plus a `.txt` with the titles and descriptions the model wrote (`clip_export.py`). Job folders in `output\` are swept after a day; the desktop copies stay.
 - **Campaign folders**: make a folder inside `clips` (e.g. `clips\Marlon`), drop videos and/or an `odkazy.txt` with one link per line into it. An `instrukce.txt` template appears; set `mam_prava: ano` (and clip count, length, captions, hook, hashtags, credit). Sources run one at a time; clips land in `clips\Marlon\hotovo`, processed videos are deleted and processed links commented out. `stav.txt` says what is going on (`campaign_inbox.py`).
 - `Stop-OpenShorts.bat` stops the containers.
 - When `nvidia-smi` works, the launcher adds `docker-compose.gpu.yml`: CUDA transcription, NVENC encoding, and one job at a time (sized for an 8 GB card).
