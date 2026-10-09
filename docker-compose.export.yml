@@ -1,5 +1,6 @@
 # Copies each finished clip (latest version) plus a .txt with its titles out of
-# output/ into CLIPS_DIR, so they outlive the job sweep. See clip_export.py.
+# output/ into CLIPS_DIR, so they outlive the job sweep (clip_export.py), and
+# runs the campaign folders in CLIPS_DIR through the API (campaign_inbox.py).
 #
 #   CLIPS_DIR=/path/to/clips docker compose -f docker-compose.yml -f docker-compose.export.yml up -d
 services:
@@ -11,8 +12,12 @@ services:
     environment:
       - OUTPUT_DIR=/app/output
       - EXPORT_DIR=/clips
+      - API_URL=http://backend:8000
     volumes:
       - ./clip_export.py:/app/clip_export.py:ro
+      - ./campaign_inbox.py:/app/campaign_inbox.py:ro
       - ./output:/app/output:ro
       - ${CLIPS_DIR:-./clips}:/clips
+    depends_on:
+      - backend
     restart: unless-stopped

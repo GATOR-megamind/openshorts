@@ -111,14 +111,16 @@ def export_job(job_dir, export_dir, now=None):
     return copied
 
 
-def export_all(output_dir, export_dir, now=None):
+def export_all(output_dir, export_dir, now=None, skip=()):
+    """Export every settled job except those in ``skip`` (campaign jobs,
+    which campaign_inbox exports into their campaign's folder)."""
     os.makedirs(export_dir, exist_ok=True)
     copied = []
     if not os.path.isdir(output_dir):
         return copied
     for name in sorted(os.listdir(output_dir)):
         job_dir = os.path.join(output_dir, name)
-        if os.path.isdir(job_dir) and not name.startswith("."):
+        if os.path.isdir(job_dir) and not name.startswith(".") and name not in skip:
             try:
                 copied += export_job(job_dir, export_dir, now)
             except OSError as e:
@@ -133,10 +135,21 @@ def main():
     args = parser.parse_args()
     output_dir = os.environ.get("OUTPUT_DIR", "output")
     export_dir = os.environ.get("EXPORT_DIR", "clips")
+    api_url = os.environ.get("API_URL")
     print(f"clip_export: {output_dir} -> {export_dir}", flush=True)
     while True:
-        for path in export_all(output_dir, export_dir):
-            print(f"clip_export: {os.path.basename(path)}", flush=True)
+        skip = ()
+        if api_url:
+            # Campaign folders (campaign_inbox.py) need the API; without it
+            # this only exports what the dashboard produced.
+            import campaign_inbox
+            try:
+                campaign_inbox.tick(export_dir, output_dir, campaign_inbox.Api(api_url))
+            except OSError as e:
+                print(f"clip_export: campaign pass failed: {e}", flush=True)
+            skip = campaign_inbox.campaign_job_ids(export_dir)
+        for path in export_all(output_dir, export_dir, skip=skip):
+            print(f"clip_export: {os.path.relpath(path, export_dir)}", flush=True)
         if args.once:
             return
         time.sleep(POLL_SECONDS)
