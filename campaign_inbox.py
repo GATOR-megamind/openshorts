@@ -325,10 +325,10 @@ def tick(export_dir, output_dir, api, now=None):
         for folder in _campaigns(export_dir):
             instr = os.path.join(folder, INSTRUCTIONS)
             if not os.path.exists(instr):
-                if any(n.lower().endswith(VIDEO_EXTS) or n == LINKS for n in os.listdir(folder)):
-                    with open(instr, "w", encoding="utf-8") as f:
-                        f.write(TEMPLATE)
-                    _write_status(folder, "Vypln instrukce.txt (hlavne 'mam_prava: ano').")
+                # A new folder is a new campaign: hand it the form right away.
+                with open(instr, "w", encoding="utf-8") as f:
+                    f.write(TEMPLATE)
+                _write_status(folder, "Vypln instrukce.txt (hlavne 'mam_prava: ano').")
                 continue
             nxt = _pending(folder, state, now)
             if not nxt:

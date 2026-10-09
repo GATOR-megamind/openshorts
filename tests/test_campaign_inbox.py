@@ -155,6 +155,12 @@ def test_file_still_copying_is_not_picked(tmp_path):
     assert api.submitted == []
 
 
+def test_empty_new_folder_gets_the_template(tmp_path):
+    clips, camp, out, api = _setup(tmp_path, instructions=None, video=False)
+    ci.tick(str(clips), str(out), api, now=1000)
+    assert (camp / "instrukce.txt").exists()
+
+
 def test_per_video_export_folders_are_not_campaigns(tmp_path):
     clips = tmp_path / "clips"
     exported = clips / "Talk [abcdef12]"
