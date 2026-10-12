@@ -48,6 +48,7 @@ VIDEO_EXTS = (".mp4", ".mov", ".mkv", ".webm", ".m4v")
 INSTRUCTIONS = "instrukce.txt"
 BRIEF = "zadani.txt"
 POST_TEXT = "text_postu.txt"
+OFF_BRIEF_DIR = "nesedi"
 LINKS = "odkazy.txt"
 STATUS = "stav.txt"
 DONE_DIR = "hotovo"
@@ -230,6 +231,10 @@ class Api:
     def _process(self, body):
         return self._call("POST", "/api/process", {"acknowledged": True, **body})["job_id"]
 
+    def focus_check(self, job_id, focus):
+        return self._call("POST", "/api/focus-check", {"job_id": job_id, "focus": focus},
+                          timeout=1800)["clips"]
+
     def status(self, job_id):
         return self._call("GET", f"/api/status/{job_id}")
 
@@ -308,14 +313,59 @@ def _one_line(value, limit=400):
     return " ".join(str(value or "").split())[:limit]
 
 
-def post_text_from_brief(data):
-    """text_postu.txt: the verbatim texts every post needs, or ""."""
+_QUOTES = {'"': '"“”„‟«»', "'": "'‘’‚‛"}
+
+
+def verbatim_from(brief, candidate):
+    """(text, verified): the span of ``brief`` the model's ``candidate``
+    quotes, copied from the brief itself, so a reworded or "fixed" copy never
+    reaches a post. Whitespace and quote styles may differ; every word must
+    match exactly. Unfound: the candidate as given and verified=False."""
+    def pattern(text):
+        out = []
+        for word in text.split():
+            esc = ""
+            for ch in word:
+                kind = next((k for k, v in _QUOTES.items() if ch in v), None)
+                esc += f"[{re.escape(_QUOTES[kind])}]" if kind else re.escape(ch)
+            out.append(esc)
+        return r"\s+".join(out)
+
+    candidate = (candidate or "").strip()
+    if not candidate:
+        return "", False
+    quotes = "".join(_QUOTES.values())
+    for attempt in (candidate, candidate.strip(quotes + " *•-").strip()):
+        if attempt and attempt.split():
+            m = re.search(pattern(attempt), brief)
+            if m:
+                start, end = m.start(), m.end()
+                # A quoted text the model cut short: take it to its closing quote.
+                before = brief[:start].rstrip()
+                if before and before[-1] in quotes and brief[end - 1] not in quotes:
+                    close = next((k for k in range(end, min(len(brief), end + 3000))
+                                  if brief[k] in quotes), None)
+                    if close is not None:
+                        start, end = len(before) - 1, close + 1
+                text = " ".join(brief[start:end].split())  # line wraps from copying the page
+                if len(text) > 1 and text[0] in quotes and text[-1] in quotes:
+                    text = text[1:-1].strip()  # the brief's quote marks delimit, not belong
+                return text, True
+    return candidate, False
+
+
+def post_text_from_brief(data, brief=""):
+    """text_postu.txt: the verbatim texts every post needs, or "". Each is
+    taken from the brief itself; one the brief does not contain word for
+    word is flagged for a manual check."""
     parts = []
     for label, key in (("Povinny text v popisku", "required_caption"),
                        ("Navrhovany popisek", "suggested_caption"),
                        ("Pripnuty komentar", "pinned_comment")):
-        value = str(data.get(key) or "").strip()
+        value, verified = verbatim_from(brief, str(data.get(key) or ""))
         if value:
+            if not verified:
+                label += " [NEOVERENO: v zadani jsem to doslova nenasel, porovnej s originalem]"
             parts.append(f"{label}:\n{value}")
     return "\n\n".join(parts) + "\n" if parts else ""
 
@@ -393,7 +443,7 @@ def _apply_brief(folder, state, llm):
         if not isinstance(data, dict):
             raise ValueError("odpoved neni objekt")
         result = instructions_from_brief(data, previous)
-        post = post_text_from_brief(data)
+        post = post_text_from_brief(data, text)
     except (ApiError, ValueError, OSError) as e:
         _write_status(folder, f"{os.path.basename(brief)} nejde prevest: {e}. Zkusim to znovu, az ho ulozis.")
         state["failed_briefs"] = (state["failed_briefs"] + [key])[-200:]
@@ -461,6 +511,7 @@ def _finish(state, export_dir, output_dir, now, api):
         return _fail(state, "z videa nevznikl zadny klip")
     for clip in copied:
         _append_extras(clip, act.get("extras") or {}, _read_post_text(folder))
+    off_brief, check_note = _check_focus(api, act, copied)
     if act["kind"] == "file":
         try:
             os.remove(act["source"])
@@ -471,9 +522,46 @@ def _finish(state, export_dir, output_dir, now, api):
             _mark_link(os.path.join(folder, LINKS), act["source"], "# hotovo")
         except OSError:
             pass
-    _write_status(folder, f"Hotovo: {label} ({len(copied)} klipu v {DONE_DIR}).")
+    summary = f"Hotovo: {label} ({len(copied)} klipu v {DONE_DIR}"
+    if off_brief:
+        summary += f", z toho {off_brief} nesedi se zadanim -> podslozka {OFF_BRIEF_DIR}"
+    _write_status(folder, summary + ")." + (f"\n{check_note}" if check_note else ""))
     state["active"] = None
     return False
+
+
+def _check_focus(api, act, copied):
+    """Look at every exported clip against the campaign focus (frames, on the
+    backend). Clips that clearly miss it move to <video>/nesedi/. Returns
+    (how many moved, a note for stav.txt or "")."""
+    focus = act.get("focus")
+    if not focus or not copied:
+        return 0, ""
+    try:
+        results = list(api.focus_check(act["job"], focus))
+    except Exception as e:  # a check must never hold back finished clips
+        return 0, f"Kontrola obrazem neprobehla ({e}); klipy projdi sam."
+    by_name = {os.path.basename(p): p for p in copied}
+    moved = 0
+    for r in results:
+        if not isinstance(r, dict):
+            continue
+        clip = by_name.get(f"clip_{r.get('clip')}.mp4")
+        if not clip:
+            continue
+        match = r.get("match")
+        verdict = {True: "sedi", False: "NESEDI"}.get(match, "nejasne")
+        txt = clip[:-len(".mp4")] + ".txt"
+        with open(txt, "a", encoding="utf-8") as f:
+            f.write(f"Kontrola obrazem: {verdict} ({r.get('confidence', 0)} %) - {r.get('seen', '')}\n")
+        if match is False:
+            dest = os.path.join(os.path.dirname(clip), OFF_BRIEF_DIR)
+            os.makedirs(dest, exist_ok=True)
+            for path in (clip, txt):
+                if os.path.exists(path):
+                    os.replace(path, os.path.join(dest, os.path.basename(path)))
+            moved += 1
+    return moved, ""
 
 
 def _read_post_text(folder):
@@ -549,6 +637,7 @@ def tick(export_dir, output_dir, api, now=None, llm=None):
             label = os.path.basename(source) if kind == "file" else source
             state["active"] = {"folder": folder, "kind": kind, "source": source,
                                "label": label, "extras": extras,
+                               "focus": fields.get("focus"),
                                "key": _file_key(source) if kind == "file" else None}
             if kind == "file" and os.path.getsize(source) > MAX_UPLOAD_BYTES:
                 _fail(state, "soubor je vetsi nez 2 GB")

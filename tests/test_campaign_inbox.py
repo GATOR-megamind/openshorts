@@ -233,7 +233,13 @@ KIZIK_JSON = json.dumps({
 
 def test_campaign_brief_focus_and_post_texts_reach_clips(tmp_path):
     clips, camp, out, api = _setup(tmp_path, instructions=None)
-    (camp / "zadani.txt").write_text("Kizik x MrBeast brief ...", encoding="utf-8")
+    (camp / "zadani.txt").write_text(
+        "Kizik x MrBeast brief\nRequired legal language in caption:\n"
+        "* \u201cNO PURCHASE NECESSARY. Open only to legal residents of the 50 US. Ends 12/21/2026. "
+        "Enter at https://swpp.me/e/kizik . Void where prohibited.\u201d\n"
+        "Suggested caption:\n* \u201cWant the golden treadmill from MrBeast's video? \U0001F440\u201d\n"
+        "Pinned comment:\n* \u201cEnter to win: https://kizik.com/pages/mrbeast?utm_source=influencer\u201d\n",
+        encoding="utf-8")
     os.utime(camp / "zadani.txt", (500, 500))
     ci.tick(str(clips), str(out), api, now=1000, llm=lambda p: KIZIK_JSON)
 
@@ -246,6 +252,7 @@ def test_campaign_brief_focus_and_post_texts_reach_clips(tmp_path):
     post = (camp / "text_postu.txt").read_text(encoding="utf-8")
     assert "NO PURCHASE NECESSARY." in post and "https://swpp.me/e/kizik ." in post
     assert "Pripnuty komentar:\nEnter to win: https://kizik.com/pages/mrbeast?utm_source=influencer" in post
+    assert "NEOVERENO" not in post
 
     job = ci._load_state(str(clips))["active"]["job"]
     api.finish(job, t=1000)
@@ -262,3 +269,64 @@ def test_brief_that_forbids_overlays_turns_the_hook_off():
     assert "hook: ne" in text
     fields, _, problems = ci.parse_instructions(text)
     assert problems == [] and fields["auto_hook"] is False and "focus" not in fields
+
+
+def test_verbatim_texts_come_from_the_brief():
+    brief = ('Required:\n* “NO PURCHASE NECESSARY. Open only to\n residents. Void where prohibited.”\n'
+             'Pinned:\n* "Enter to win: https://kizik.com/x?a=1"\n')
+    assert ci.verbatim_from(brief, '"NO PURCHASE NECESSARY. Open only to residents. Void where prohibited."') \
+        == ("NO PURCHASE NECESSARY. Open only to residents. Void where prohibited.", True)
+    # A copy cut short is taken to the closing quote.
+    assert ci.verbatim_from(brief, "NO PURCHASE NECESSARY. Open only to residents.")[0].endswith("prohibited.")
+    assert ci.verbatim_from(brief, "Enter to win: https://kizik.com/x?a=1") == \
+        ("Enter to win: https://kizik.com/x?a=1", True)
+    # A reworded copy is flagged, never silently passed.
+    assert ci.verbatim_from(brief, "No purchase needed, US only.") == ("No purchase needed, US only.", False)
+    post = ci.post_text_from_brief({"required_caption": "No purchase needed, US only."}, brief)
+    assert "NEOVERENO" in post
+
+
+class CheckingApi(FakeApi):
+    def __init__(self, output_dir, verdicts):
+        super().__init__(output_dir)
+        self.verdicts = verdicts
+        self.checked = []
+
+    def focus_check(self, job, focus):
+        self.checked.append((job, focus))
+        return self.verdicts
+
+
+def test_clips_that_miss_the_focus_move_aside(tmp_path):
+    clips, camp, out, _ = _setup(tmp_path, instructions=GOOD + "zamereni: Kizik shoes\n")
+    api = CheckingApi(str(out), [
+        {"clip": 1, "match": True, "confidence": 90, "seen": "Kizik shoes on treadmill"},
+        {"clip": 2, "match": False, "confidence": 85, "seen": "people eating"}])
+    ci.tick(str(clips), str(out), api, now=1000)
+    job = ci._load_state(str(clips))["active"]["job"]
+    assert api.submitted[0][1]["focus"] == "Kizik shoes"
+    api.finish(job, t=1000)
+    ci.tick(str(clips), str(out), api, now=1100)
+    video = camp / "hotovo" / f"Stream [{job[:8]}]"
+    assert api.checked == [(job, "Kizik shoes")]
+    assert sorted(os.listdir(video)) == ["clip_1.mp4", "clip_1.txt", "nesedi"]
+    assert sorted(os.listdir(video / "nesedi")) == ["clip_2.mp4", "clip_2.txt"]
+    assert "Kontrola obrazem: sedi (90 %)" in (video / "clip_1.txt").read_text()
+    assert "NESEDI" in (video / "nesedi" / "clip_2.txt").read_text()
+    assert "1 nesedi" in (camp / "stav.txt").read_text()
+
+
+def test_failed_check_keeps_every_clip(tmp_path):
+    clips, camp, out, _ = _setup(tmp_path, instructions=GOOD + "zamereni: Kizik shoes\n")
+
+    class Broken(FakeApi):
+        def focus_check(self, job, focus):
+            raise ci.ApiError("Gemini missing")
+    api = Broken(str(out))
+    ci.tick(str(clips), str(out), api, now=1000)
+    job = ci._load_state(str(clips))["active"]["job"]
+    api.finish(job, t=1000)
+    ci.tick(str(clips), str(out), api, now=1100)
+    video = camp / "hotovo" / f"Stream [{job[:8]}]"
+    assert sorted(os.listdir(video)) == ["clip_1.mp4", "clip_1.txt", "clip_2.mp4", "clip_2.txt"]
+    assert "Kontrola obrazem neprobehla" in (camp / "stav.txt").read_text()

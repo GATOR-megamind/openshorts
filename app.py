@@ -3480,6 +3480,34 @@ async def get_status(job_id: str, request: Request):
     }
 
 
+class FocusCheckRequest(BaseModel):
+    job_id: str
+    focus: str
+
+
+@app.post("/api/focus-check")
+async def focus_check_endpoint(req: FocusCheckRequest, request: Request):
+    """Check every finished clip of a job against a campaign focus by looking
+    at its frames (focus_check.py): the moment picker reads only the
+    transcript, so it cannot see a product that is shown and never named."""
+    if not _JOB_ID_RE.match(req.job_id or ""):
+        raise HTTPException(status_code=400, detail="Invalid job_id")
+    job = jobs.get(req.job_id) or _job_view_from_disk(req.job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    await _assert_job_owner(request, job)
+    if job.get("status") != "completed":
+        raise HTTPException(status_code=409, detail="Job is not completed")
+    api_key = await resolve_gemini(request)
+    if not api_key:
+        raise gemini_missing_error()
+    import focus_check
+    job_dir = os.path.join(OUTPUT_DIR, req.job_id)
+    clips = await asyncio.get_event_loop().run_in_executor(
+        None, lambda: focus_check.check_job(job_dir, req.focus, api_key=api_key))
+    return {"job_id": req.job_id, "clips": clips}
+
+
 def _locate_source(job_id: str):
     """Find a job's source video on disk, or None.
 

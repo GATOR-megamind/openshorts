@@ -30,6 +30,11 @@ above every generic criterion: windows off the focus score under 30. It works on
 the transcript, so a product that is only seen, never said, is invisible to it.
 The visual fallback (`get_visual_clips`) does not read it. Self-host campaign
 folders (`campaign_inbox.py`) fill it from the brief's `zamereni`.
+`POST /api/focus-check` (`focus_check.py`) covers what the transcript cannot:
+it sends 8 frames of each finished clip (latest version) with the focus to
+Gemini and returns match / confidence / what is seen. It never raises; an
+unanswerable check is `match: null`. Campaign folders move clips with
+`match: false` to `<video>/nesedi/` and keep the rest.
 
 ## Silent footage: the vision fallback (`main.get_visual_clips`)
 
