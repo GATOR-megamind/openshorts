@@ -172,3 +172,50 @@ def test_per_video_export_folders_are_not_campaigns(tmp_path):
     api = FakeApi(str(out))
     ci.tick(str(clips), str(out), api, now=1000)
     assert api.submitted == [] and not (exported / "instrukce.txt").exists()
+
+
+BRIEF_JSON = json.dumps({"min_seconds": 15, "max_seconds": 60, "hashtags": ["marlon", "#irl"],
+                         "credit": "@marlon", "captions": True,
+                         "rules": ["Bez cizi hudby", "Klip musi zacit akci"]})
+
+
+def test_brief_fills_instructions_and_starts(tmp_path):
+    clips, camp, out, api = _setup(tmp_path, instructions=None)
+    (camp / "pravidla.txt").write_text("Clips 15-60s, use #marlon #irl, tag @marlon", encoding="utf-8")
+    os.utime(camp / "pravidla.txt", (500, 500))
+    prompts = []
+    llm = lambda p: prompts.append(p) or BRIEF_JSON
+    ci.tick(str(clips), str(out), api, now=1000, llm=llm)
+    text = (camp / "instrukce.txt").read_text()
+    assert "mam_prava: ano" in text and "delka: 15-60" in text
+    assert "hashtagy: #marlon #irl" in text and "kredit: @marlon" in text
+    assert "#  - Bez cizi hudby" in text
+    assert "tag @marlon" in prompts[0]
+    fields, extras, problems = ci.parse_instructions(text)
+    assert problems == [] and fields["clip_min_seconds"] == 15
+    # The same pass starts the video with those settings.
+    assert api.submitted and api.submitted[0][1]["clip_max_seconds"] == 60
+    # Not regenerated while the brief is unchanged.
+    ci.tick(str(clips), str(out), api, now=1010, llm=llm)
+    assert len(prompts) == 1
+
+
+def test_brief_failure_reports_and_does_not_write_template(tmp_path):
+    clips, camp, out, api = _setup(tmp_path, instructions=None)
+    (camp / "zadani.txt").write_text("rules", encoding="utf-8")
+
+    def broken(prompt):
+        raise ci.ApiError("Gemini HTTP 429")
+    ci.tick(str(clips), str(out), api, now=1000, llm=broken)
+    assert not (camp / "instrukce.txt").exists()
+    assert "Gemini HTTP 429" in (camp / "stav.txt").read_text()
+    assert api.submitted == []
+
+
+def test_brief_values_are_clamped():
+    text = ci.instructions_from_brief({"min_seconds": 2, "max_seconds": 600, "hashtags": [],
+                                       "captions": False}, previous="klipu: 4\n")
+    fields, _, problems = ci.parse_instructions(text)
+    assert problems == []
+    assert fields["clip_min_seconds"] == 5 and fields["clip_max_seconds"] == 180
+    assert fields["target_clips"] == 4 and fields["captions"] is False

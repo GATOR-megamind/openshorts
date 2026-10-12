@@ -13,6 +13,9 @@ services:
       - OUTPUT_DIR=/app/output
       - EXPORT_DIR=/clips
       - API_URL=http://backend:8000
+      # From the project's .env (compose reads it for ${...}): zadani.txt -> instrukce.txt.
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-}
     volumes:
       - ./clip_export.py:/app/clip_export.py:ro
       - ./campaign_inbox.py:/app/campaign_inbox.py:ro

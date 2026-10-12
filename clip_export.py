@@ -144,7 +144,8 @@ def main():
             # this only exports what the dashboard produced.
             import campaign_inbox
             try:
-                campaign_inbox.tick(export_dir, output_dir, campaign_inbox.Api(api_url))
+                campaign_inbox.tick(export_dir, output_dir, campaign_inbox.Api(api_url),
+                                    llm=campaign_inbox.Gemini.from_env())
             except OSError as e:
                 print(f"clip_export: campaign pass failed: {e}", flush=True)
             skip = campaign_inbox.campaign_job_ids(export_dir)
