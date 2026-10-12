@@ -24,6 +24,13 @@ Two invariants keep that chain from leaking:
 `target_clips` on `/api/process` (dashboard: advanced options) pins both ends via
 `CLIP_TARGET_MIN` / `CLIP_TARGET_MAX` when the user wants an exact number.
 
+`focus` on `/api/process` (plain text, capped at 500 chars) becomes `CLIP_FOCUS`;
+`clip_selection.focus_preamble` puts it in front of the score and detail prompts,
+above every generic criterion: windows off the focus score under 30. It works on
+the transcript, so a product that is only seen, never said, is invisible to it.
+The visual fallback (`get_visual_clips`) does not read it. Self-host campaign
+folders (`campaign_inbox.py`) fill it from the brief's `zamereni`.
+
 ## Silent footage: the vision fallback (`main.get_visual_clips`)
 
 `transcribe_video` raising `NoAudioError`, **or** `speech_is_sparse()` returning

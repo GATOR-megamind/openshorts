@@ -363,3 +363,20 @@ def snap_clip_to_words(start, end, words, video_duration,
     if new_end <= new_start or new_end - new_start < min_duration:
         return original
     return (round(new_start, 3), round(new_end, 3))
+
+
+def focus_preamble(environ=None):
+    """The campaign focus (``CLIP_FOCUS``) as a block to put in front of the
+    score and detail prompts, or "" when the job has none. It outranks the
+    generic virality criteria: a clip off the brief is rejected by the
+    campaign however strong it is."""
+    import os
+
+    focus = " ".join(((environ if environ is not None else os.environ).get("CLIP_FOCUS") or "").split())[:500]
+    if not focus:
+        return ""
+    return ("CAMPAIGN FOCUS (from the brand's brief; it outranks every generic criterion below):\n"
+            f"{focus}\n"
+            "Only moments that serve this focus are usable. Score windows that do not touch it "
+            "under 30 however strong they are otherwise, and only return clips that serve it. "
+            "Timestamps in the focus are mm:ss or hh:mm:ss from the start of the source video.\n\n")

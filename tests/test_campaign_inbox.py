@@ -219,3 +219,46 @@ def test_brief_values_are_clamped():
     assert problems == []
     assert fields["clip_min_seconds"] == 5 and fields["clip_max_seconds"] == 180
     assert fields["target_clips"] == 4 and fields["captions"] is False
+
+
+KIZIK_JSON = json.dumps({
+    "min_seconds": 15, "max_seconds": None, "hashtags": ["#kizikpartner"], "credit": None,
+    "captions": None, "hook": True,
+    "focus": "Kizik hands-free shoes and the golden treadmill challenge starting at 34:18",
+    "required_caption": "NO PURCHASE NECESSARY. Open only to legal residents of the 50 US. Ends 12/21/2026. Enter at https://swpp.me/e/kizik . Void where prohibited.",
+    "suggested_caption": "Want the golden treadmill from MrBeast's video? 👀",
+    "pinned_comment": "Enter to win: https://kizik.com/pages/mrbeast?utm_source=influencer",
+    "rules": ["Pouze zdroj z Frame.io", "Nemenit zvuk"]})
+
+
+def test_campaign_brief_focus_and_post_texts_reach_clips(tmp_path):
+    clips, camp, out, api = _setup(tmp_path, instructions=None)
+    (camp / "zadani.txt").write_text("Kizik x MrBeast brief ...", encoding="utf-8")
+    os.utime(camp / "zadani.txt", (500, 500))
+    ci.tick(str(clips), str(out), api, now=1000, llm=lambda p: KIZIK_JSON)
+
+    text = (camp / "instrukce.txt").read_text()
+    assert "zamereni: Kizik hands-free shoes and the golden treadmill challenge starting at 34:18" in text
+    assert "hook: ano" in text and "delka: 15-45" in text and "hashtagy: #kizikpartner" in text
+    fields = api.submitted[0][1]
+    assert fields["focus"].startswith("Kizik hands-free shoes")
+
+    post = (camp / "text_postu.txt").read_text(encoding="utf-8")
+    assert "NO PURCHASE NECESSARY." in post and "https://swpp.me/e/kizik ." in post
+    assert "Pripnuty komentar:\nEnter to win: https://kizik.com/pages/mrbeast?utm_source=influencer" in post
+
+    job = ci._load_state(str(clips))["active"]["job"]
+    api.finish(job, t=1000)
+    ci.tick(str(clips), str(out), api, now=1100, llm=lambda p: KIZIK_JSON)
+    clip_txt = (camp / "hotovo" / f"Stream [{job[:8]}]" / "clip_1.txt").read_text(encoding="utf-8")
+    assert "Hashtagy: #kizikpartner" in clip_txt
+    assert "NO PURCHASE NECESSARY." in clip_txt and "Want the golden treadmill" in clip_txt
+    # text_postu.txt is ours, never mistaken for the brief.
+    assert ci._brief_path(str(camp)).endswith("zadani.txt")
+
+
+def test_brief_that_forbids_overlays_turns_the_hook_off():
+    text = ci.instructions_from_brief({"hook": False, "focus": None})
+    assert "hook: ne" in text
+    fields, _, problems = ci.parse_instructions(text)
+    assert problems == [] and fields["auto_hook"] is False and "focus" not in fields

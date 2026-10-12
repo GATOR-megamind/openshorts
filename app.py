@@ -3056,6 +3056,7 @@ async def process_endpoint(
     captions: Optional[str] = Form(None),
     upload_id: Optional[str] = Form(None),
     max_minutes: Optional[str] = Form(None),
+    focus: Optional[str] = Form(None),
 ):
     api_key = await resolve_gemini(request)
     if not api_key and not (llm_backend.active() and not BILLING_ENABLED):
@@ -3091,6 +3092,7 @@ async def process_endpoint(
         captions = body.get("captions")
         upload_id = body.get("upload_id")
         max_minutes = body.get("max_minutes")
+        focus = body.get("focus")
 
     # Normalize output format (auto = keep pipeline default).
     if output_format not in ("vertical", "horizontal", "square"):
@@ -3236,6 +3238,12 @@ async def process_endpoint(
         env["CLIP_MAX_SECONDS"] = str(max_secs)
     if n_clips is not None or min_secs is not None or max_secs is not None:
         print(f"[gen-controls] job={job_id} clips={n_clips} band={min_secs}-{max_secs}")
+
+    # Campaign focus: what the clips must be about (a brand, a segment, a
+    # timestamp), handed to the moment picker's prompts. Plain text, capped.
+    if isinstance(focus, str) and focus.strip():
+        env["CLIP_FOCUS"] = " ".join(focus.split())[:500]
+        print(f"[focus] job={job_id} {env['CLIP_FOCUS'][:80]}")
 
     # captions=false: the source already carries burned-in subtitles (or the
     # caller adds its own later), so skip the free auto-caption pass instead
